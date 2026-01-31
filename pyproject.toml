@@ -1,0 +1,16 @@
+[project]
+name = "taskwarrior-mcp"
+version = "0.1.0"
+description = "MCP server for Taskwarrior CLI task management"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+taskwarrior-mcp = "taskwarrior_mcp:mcp.run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
