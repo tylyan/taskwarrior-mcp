@@ -70,9 +70,7 @@ class ListTasksInput(BaseModel):
         default=TaskStatus.PENDING,
         description="Filter by task status: pending, completed, deleted, or all",
     )
-    limit: int | None = Field(
-        default=50, description="Maximum number of tasks to return", ge=1, le=500
-    )
+    limit: int | None = Field(default=50, description="Maximum number of tasks to return", ge=1, le=500)
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN,
         description="Output format: 'markdown' for human-readable or 'json' for machine-readable",
@@ -84,13 +82,9 @@ class AddTaskInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    description: str = Field(
-        ..., description="Task description (required)", min_length=1, max_length=1000
-    )
+    description: str = Field(..., description="Task description (required)", min_length=1, max_length=1000)
     project: str | None = Field(default=None, description="Project name to assign the task to")
-    priority: Priority | None = Field(
-        default=None, description="Task priority: H (high), M (medium), L (low)"
-    )
+    priority: Priority | None = Field(default=None, description="Task priority: H (high), M (medium), L (low)")
     due: str | None = Field(
         default=None,
         description="Due date (e.g., 'today', 'tomorrow', '2024-12-31', 'eow' for end of week)",
@@ -98,9 +92,7 @@ class AddTaskInput(BaseModel):
     tags: list[str] | None = Field(
         default=None, description="List of tags to apply (without '+' prefix)", max_length=20
     )
-    depends: str | None = Field(
-        default=None, description="Task ID(s) this task depends on (comma-separated)"
-    )
+    depends: str | None = Field(default=None, description="Task ID(s) this task depends on (comma-separated)")
 
     @field_validator("description")
     @classmethod
@@ -125,17 +117,11 @@ class ModifyTaskInput(BaseModel):
 
     task_id: str = Field(..., description="Task ID or UUID to modify", min_length=1)
     description: str | None = Field(default=None, description="New task description")
-    project: str | None = Field(
-        default=None, description="New project name (use empty string to remove)"
-    )
-    priority: str | None = Field(
-        default=None, description="New priority: H, M, L, or empty to remove"
-    )
+    project: str | None = Field(default=None, description="New project name (use empty string to remove)")
+    priority: str | None = Field(default=None, description="New priority: H, M, L, or empty to remove")
     due: str | None = Field(default=None, description="New due date (use empty string to remove)")
     add_tags: list[str] | None = Field(default=None, description="Tags to add (without '+' prefix)")
-    remove_tags: list[str] | None = Field(
-        default=None, description="Tags to remove (without '-' prefix)"
-    )
+    remove_tags: list[str] | None = Field(default=None, description="Tags to remove (without '-' prefix)")
 
 
 class DeleteTaskInput(BaseModel):
@@ -152,9 +138,7 @@ class AnnotateTaskInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     task_id: str = Field(..., description="Task ID or UUID to annotate", min_length=1)
-    annotation: str = Field(
-        ..., description="Annotation text to add", min_length=1, max_length=2000
-    )
+    annotation: str = Field(..., description="Annotation text to add", min_length=1, max_length=2000)
 
 
 class GetTaskInput(BaseModel):
@@ -174,9 +158,7 @@ class BulkGetTasksInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    task_ids: list[str] = Field(
-        ..., description="List of task IDs or UUIDs to retrieve", min_length=1, max_length=50
-    )
+    task_ids: list[str] = Field(..., description="List of task IDs or UUIDs to retrieve", min_length=1, max_length=50)
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN,
         description="Output format: 'markdown' for human-readable or 'json' for machine-readable",
@@ -248,16 +230,12 @@ class SuggestInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    limit: int = Field(
-        default=5, description="Maximum number of suggestions to return", ge=1, le=20
-    )
+    limit: int = Field(default=5, description="Maximum number of suggestions to return", ge=1, le=20)
     context: str | None = Field(
         default=None,
         description="Context: 'quick_wins', 'blockers', 'deadlines', or None for balanced",
     )
-    project: str | None = Field(
-        default=None, description="Filter suggestions to a specific project"
-    )
+    project: str | None = Field(default=None, description="Filter suggestions to a specific project")
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN, description="Output format: 'markdown' or 'json'"
     )
@@ -282,12 +260,8 @@ class BlockedInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    limit: int = Field(
-        default=10, description="Maximum number of blocked tasks to return", ge=1, le=50
-    )
-    show_blockers: bool = Field(
-        default=True, description="Show which tasks are blocking each blocked task"
-    )
+    limit: int = Field(default=10, description="Maximum number of blocked tasks to return", ge=1, le=50)
+    show_blockers: bool = Field(default=True, description="Show which tasks are blocking each blocked task")
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN, description="Output format: 'markdown' or 'json'"
     )
@@ -298,15 +272,9 @@ class DependenciesInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    task_id: str | None = Field(
-        default=None, description="Specific task ID to analyze, or None for overview"
-    )
-    direction: str = Field(
-        default="both", description="Direction: 'blocks', 'blocked_by', or 'both'"
-    )
-    depth: int = Field(
-        default=3, description="How deep to traverse the dependency tree", ge=1, le=10
-    )
+    task_id: str | None = Field(default=None, description="Specific task ID to analyze, or None for overview")
+    direction: str = Field(default="both", description="Direction: 'blocks', 'blocked_by', or 'both'")
+    depth: int = Field(default=3, description="How deep to traverse the dependency tree", ge=1, le=10)
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN, description="Output format: 'markdown' or 'json'"
     )
@@ -317,13 +285,9 @@ class TriageInput(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    stale_days: int = Field(
-        default=14, description="Number of days before a task is considered stale", ge=1, le=365
-    )
+    stale_days: int = Field(default=14, description="Number of days before a task is considered stale", ge=1, le=365)
     include_untagged: bool = Field(default=True, description="Include tasks with no tags")
-    include_no_project: bool = Field(
-        default=True, description="Include tasks not assigned to a project"
-    )
+    include_no_project: bool = Field(default=True, description="Include tasks not assigned to a project")
     include_no_due: bool = Field(default=True, description="Include tasks with no due date")
     limit: int = Field(default=20, description="Maximum items per category", ge=1, le=100)
     response_format: ResponseFormat = Field(
@@ -337,9 +301,7 @@ class ContextInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     task_id: str = Field(..., description="Task ID or UUID to get context for", min_length=1)
-    include_related: bool = Field(
-        default=True, description="Include related tasks from the same project"
-    )
+    include_related: bool = Field(default=True, description="Include related tasks from the same project")
     include_activity: bool = Field(default=True, description="Include recent activity information")
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN, description="Output format: 'markdown' or 'json'"
@@ -473,8 +435,7 @@ def _run_task_command(args: list[str], input_text: str | None = None) -> tuple[b
         return False, "Error: Command timed out after 30 seconds"
     except FileNotFoundError:
         return False, (
-            "Error: Taskwarrior is not installed or not in PATH. "
-            "Install it with 'brew install task' or equivalent."
+            "Error: Taskwarrior is not installed or not in PATH. Install it with 'brew install task' or equivalent."
         )
     except Exception as e:
         return False, f"Error: Unexpected error - {type(e).__name__}: {str(e)}"
@@ -1084,12 +1045,7 @@ async def taskwarrior_projects(params: ListProjectsInput) -> str:
 
     if params.response_format == ResponseFormat.JSON:
         return json.dumps(
-            {
-                "projects": [
-                    {"name": name, "task_count": count}
-                    for name, count in sorted(project_counts.items())
-                ]
-            },
+            {"projects": [{"name": name, "task_count": count} for name, count in sorted(project_counts.items())]},
             indent=2,
         )
 
@@ -1143,12 +1099,7 @@ async def taskwarrior_tags(params: ListTagsInput) -> str:
 
     if params.response_format == ResponseFormat.JSON:
         return json.dumps(
-            {
-                "tags": [
-                    {"name": name, "task_count": count}
-                    for name, count in sorted(tag_counts.items())
-                ]
-            },
+            {"tags": [{"name": name, "task_count": count} for name, count in sorted(tag_counts.items())]},
             indent=2,
         )
 
@@ -1275,9 +1226,7 @@ async def taskwarrior_summary() -> str:
 # ============================================================================
 
 
-def _calculate_suggestion_score(
-    task: TaskModel, all_tasks: list[TaskModel]
-) -> tuple[float, list[str]]:
+def _calculate_suggestion_score(task: TaskModel, all_tasks: list[TaskModel]) -> tuple[float, list[str]]:
     """
     Calculate suggestion score for a task and return reasons.
 
@@ -1477,15 +1426,11 @@ async def taskwarrior_suggest(params: SuggestInput) -> str:
 
     # Apply context filter if specified
     if params.context == "quick_wins":
-        scored_tasks = [
-            s for s in scored_tasks if "Quick win" in s.reasons or s.task.urgency < 5
-        ]
+        scored_tasks = [s for s in scored_tasks if "Quick win" in s.reasons or s.task.urgency < 5]
     elif params.context == "blockers":
         scored_tasks = [s for s in scored_tasks if any("Blocks" in r for r in s.reasons)]
     elif params.context == "deadlines":
-        scored_tasks = [
-            s for s in scored_tasks if "Overdue" in s.reasons or "Due soon" in s.reasons
-        ]
+        scored_tasks = [s for s in scored_tasks if "Overdue" in s.reasons or "Due soon" in s.reasons]
 
     # Limit results
     scored_tasks = scored_tasks[: params.limit]
@@ -1811,9 +1756,7 @@ async def taskwarrior_dependencies(params: DependenciesInput) -> str:
             return json.dumps(
                 {
                     "task": task.model_dump(),
-                    "blocks": [b.model_dump() for b in blocks]
-                    if params.direction in ["both", "blocks"]
-                    else [],
+                    "blocks": [b.model_dump() for b in blocks] if params.direction in ["both", "blocks"] else [],
                     "blocked_by": [b.model_dump() for b in blocked_by]
                     if params.direction in ["both", "blocked_by"]
                     else [],
@@ -1866,9 +1809,7 @@ async def taskwarrior_dependencies(params: DependenciesInput) -> str:
         for uuid, blocked_list in blocks_map.items():
             bottleneck_task = uuid_to_task.get(uuid)
             if bottleneck_task is not None and bottleneck_task.status == "pending":
-                bottlenecks.append(
-                    BottleneckInfo(task=bottleneck_task, blocks_count=len(blocked_list))
-                )
+                bottlenecks.append(BottleneckInfo(task=bottleneck_task, blocks_count=len(blocked_list)))
 
         bottlenecks.sort(key=lambda x: x.blocks_count, reverse=True)
 
@@ -2114,9 +2055,7 @@ async def taskwarrior_context(params: ContextInput) -> str:
     if task.depends:
         dep_uuids = [d.strip() for d in task.depends.split(",") if d.strip()]
         uuid_to_task = {t.uuid: t for t in all_tasks if t.uuid}
-        blocked_by_count = sum(
-            1 for d in dep_uuids if uuid_to_task.get(d) and uuid_to_task[d].status == "pending"
-        )
+        blocked_by_count = sum(1 for d in dep_uuids if uuid_to_task.get(d) and uuid_to_task[d].status == "pending")
 
     for t in pending_tasks:
         if t.depends and task_uuid in t.depends:
@@ -2132,9 +2071,7 @@ async def taskwarrior_context(params: ContextInput) -> str:
     # Related tasks (same project)
     related: list[TaskModel] = []
     if params.include_related and task.project:
-        related = [t for t in pending_tasks if t.project == task.project and t.uuid != task_uuid][
-            :5
-        ]
+        related = [t for t in pending_tasks if t.project == task.project and t.uuid != task_uuid][:5]
 
     # Last modified
     last_activity = "Unknown"
@@ -2167,9 +2104,7 @@ async def taskwarrior_context(params: ContextInput) -> str:
             {
                 "task": task.model_dump(),
                 "computed": computed.model_dump(),
-                "related_tasks": [t.model_dump() for t in related]
-                if params.include_related
-                else [],
+                "related_tasks": [t.model_dump() for t in related] if params.include_related else [],
             },
             indent=2,
         )
