@@ -202,6 +202,32 @@ class GetTaskInput(BaseModel):
     )
 
 
+class BulkGetTasksInput(BaseModel):
+    """Input model for getting multiple tasks at once."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    task_ids: List[str] = Field(
+        ...,
+        description="List of task IDs or UUIDs to retrieve",
+        min_length=1,
+        max_length=50
+    )
+    response_format: ResponseFormat = Field(
+        default=ResponseFormat.MARKDOWN,
+        description="Output format: 'markdown' for human-readable or 'json' for machine-readable"
+    )
+
+    @field_validator('task_ids')
+    @classmethod
+    def validate_task_ids(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("At least one task ID is required")
+        cleaned = [tid.strip() for tid in v if tid.strip()]
+        if not cleaned:
+            raise ValueError("At least one valid task ID is required")
+        return cleaned
+
+
 class ListProjectsInput(BaseModel):
     """Input model for listing projects."""
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -679,6 +705,69 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
             return json.dumps(task, indent=2)
 
         return _format_task_markdown(task)
+
+    except json.JSONDecodeError as e:
+        return f"Error: Failed to parse task data - {str(e)}"
+
+
+@mcp.tool(
+    name="taskwarrior_bulk_get",
+    annotations={
+        "title": "Get Multiple Task Details",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
+    """
+    Get detailed information about multiple tasks at once.
+
+    Use this tool to view all attributes and annotations of multiple tasks
+    in a single request, which is more efficient than calling taskwarrior_get
+    multiple times.
+
+    Args:
+        params: BulkGetTasksInput containing task_ids and response_format
+
+    Returns:
+        Detailed task information (markdown or JSON)
+
+    Examples:
+        - Get tasks #1, #2, #3: params with task_ids=["1", "2", "3"]
+        - Get tasks as JSON: params with task_ids=["1", "2"], response_format="json"
+    """
+    # Build filter for multiple task IDs using Taskwarrior OR syntax
+    filter_expr = " or ".join(f"id:{tid}" for tid in params.task_ids)
+    success, output = _run_task_command([f"({filter_expr})", "export"])
+
+    if not success:
+        return output
+
+    try:
+        tasks = json.loads(output) if output else []
+
+        if not tasks:
+            return f"Error: No tasks found for IDs: {', '.join(params.task_ids)}"
+
+        if params.response_format == ResponseFormat.JSON:
+            return json.dumps(tasks, indent=2)
+
+        # Format as markdown
+        lines = [f"# Task Details ({len(tasks)} tasks found)\n"]
+        for task in tasks:
+            lines.append(_format_task_markdown(task))
+            lines.append("")  # Blank line between tasks
+
+        # Note any missing tasks
+        found_ids = {str(t.get("id")) for t in tasks}
+        found_ids.update({t.get("uuid", "")[:8] for t in tasks})
+        missing = [tid for tid in params.task_ids if tid not in found_ids]
+        if missing:
+            lines.append(f"\n**Note:** Tasks not found: {', '.join(missing)}")
+
+        return "\n".join(lines)
 
     except json.JSONDecodeError as e:
         return f"Error: Failed to parse task data - {str(e)}"

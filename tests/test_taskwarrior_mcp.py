@@ -12,6 +12,7 @@ from taskwarrior_mcp import (
     ModifyTaskInput,
     DeleteTaskInput,
     GetTaskInput,
+    BulkGetTasksInput,
     AnnotateTaskInput,
     StartTaskInput,
     StopTaskInput,
@@ -34,6 +35,7 @@ from taskwarrior_mcp import (
     taskwarrior_modify,
     taskwarrior_delete,
     taskwarrior_get,
+    taskwarrior_bulk_get,
     taskwarrior_annotate,
     taskwarrior_start,
     taskwarrior_stop,
@@ -867,6 +869,149 @@ class TestTaskwarriorGet:
             params = GetTaskInput(task_id="999")
             result = await taskwarrior_get(params)
             assert "not found" in result.lower()
+
+
+class TestBulkGetTasksInput:
+    """Tests for BulkGetTasksInput model."""
+
+    def test_valid_task_ids(self):
+        """Test valid list of task IDs."""
+        input_model = BulkGetTasksInput(task_ids=["1", "2", "3"])
+        assert input_model.task_ids == ["1", "2", "3"]
+
+    def test_default_response_format(self):
+        """Test default response format is markdown."""
+        input_model = BulkGetTasksInput(task_ids=["1"])
+        assert input_model.response_format == ResponseFormat.MARKDOWN
+
+    def test_json_response_format(self):
+        """Test setting JSON response format."""
+        input_model = BulkGetTasksInput(task_ids=["1"], response_format=ResponseFormat.JSON)
+        assert input_model.response_format == ResponseFormat.JSON
+
+    def test_empty_task_ids_fails(self):
+        """Test that empty task_ids list raises validation error."""
+        with pytest.raises(ValueError):
+            BulkGetTasksInput(task_ids=[])
+
+    def test_whitespace_task_ids_stripped(self):
+        """Test that whitespace is stripped from task IDs."""
+        input_model = BulkGetTasksInput(task_ids=["  1  ", "  2  "])
+        assert input_model.task_ids == ["1", "2"]
+
+    def test_whitespace_only_task_ids_rejected(self):
+        """Test that whitespace-only task IDs are filtered out."""
+        input_model = BulkGetTasksInput(task_ids=["1", "   ", "2"])
+        assert input_model.task_ids == ["1", "2"]
+
+    def test_all_whitespace_task_ids_fails(self):
+        """Test that all whitespace-only task IDs raises validation error."""
+        with pytest.raises(ValueError):
+            BulkGetTasksInput(task_ids=["   ", "  "])
+
+
+class TestTaskwarriorBulkGet:
+    """Tests for the taskwarrior_bulk_get tool."""
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_markdown(self, sample_tasks):
+        """Test getting multiple tasks in markdown format."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=json.dumps(sample_tasks[:2]),
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["1", "2"])
+            result = await taskwarrior_bulk_get(params)
+            assert "Task one" in result
+            assert "Task two" in result
+            assert "2 tasks found" in result
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_json(self, sample_tasks):
+        """Test getting multiple tasks in JSON format."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=json.dumps(sample_tasks[:2]),
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["1", "2"], response_format=ResponseFormat.JSON)
+            result = await taskwarrior_bulk_get(params)
+            parsed = json.loads(result)
+            assert len(parsed) == 2
+            assert parsed[0]["description"] == "Task one"
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_single_task(self, sample_task):
+        """Test getting a single task using bulk get."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=json.dumps([sample_task]),
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["1"])
+            result = await taskwarrior_bulk_get(params)
+            assert "Test task" in result
+            assert "1 tasks found" in result
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_partial_not_found(self, sample_tasks):
+        """Test bulk get when some tasks are not found."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=json.dumps([sample_tasks[0]]),
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["1", "999"])
+            result = await taskwarrior_bulk_get(params)
+            assert "Task one" in result
+            assert "not found" in result.lower()
+            assert "999" in result
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_none_found(self):
+        """Test bulk get when no tasks are found."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="[]",
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["999", "998"])
+            result = await taskwarrior_bulk_get(params)
+            assert "Error" in result or "not found" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_command_error(self):
+        """Test handling errors from Taskwarrior command."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=1,
+                stdout="",
+                stderr="Database error"
+            )
+            params = BulkGetTasksInput(task_ids=["1", "2"])
+            result = await taskwarrior_bulk_get(params)
+            assert "Error" in result
+
+    @pytest.mark.asyncio
+    async def test_bulk_get_uses_or_filter(self, sample_tasks):
+        """Test that bulk get uses OR filter syntax."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=json.dumps(sample_tasks),
+                stderr=""
+            )
+            params = BulkGetTasksInput(task_ids=["1", "2", "3"])
+            await taskwarrior_bulk_get(params)
+            call_args = mock_run.call_args[0][0]
+            # Verify OR filter is used
+            assert any("or" in arg.lower() for arg in call_args)
 
 
 class TestTaskwarriorAnnotate:

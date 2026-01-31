@@ -103,6 +103,7 @@ Add to your `~/.claude/settings.json`:
 | `taskwarrior_modify` | Modify task attributes |
 | `taskwarrior_delete` | Delete a task |
 | `taskwarrior_get` | Get detailed info about a task |
+| `taskwarrior_bulk_get` | Get detailed info about multiple tasks at once |
 | `taskwarrior_annotate` | Add a note to a task |
 | `taskwarrior_start` | Start working on a task |
 | `taskwarrior_stop` | Stop working on a task |
