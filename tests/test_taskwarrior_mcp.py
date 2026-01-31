@@ -1,54 +1,63 @@
 """Tests for the Taskwarrior MCP server."""
 
-import pytest
 import json
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from taskwarrior_mcp import (
-    # Input models
-    ListTasksInput,
     AddTaskInput,
+    AnnotateTaskInput,
+    BulkGetTasksInput,
     CompleteTaskInput,
-    ModifyTaskInput,
     DeleteTaskInput,
     GetTaskInput,
-    BulkGetTasksInput,
-    AnnotateTaskInput,
-    StartTaskInput,
-    StopTaskInput,
     ListProjectsInput,
     ListTagsInput,
-    UndoInput,
+    # Input models
+    ListTasksInput,
+    ModifyTaskInput,
+    Priority,
     # Enums
     ResponseFormat,
+    StartTaskInput,
+    StopTaskInput,
     TaskStatus,
-    Priority,
-    # Private functions (for testing)
-    _run_task_command as run_task_command,
-    _format_task_markdown as format_task_markdown,
-    _format_tasks_markdown as format_tasks_markdown,
-    _get_tasks_json as get_tasks_json,
-    # Tool functions
-    taskwarrior_list,
+    UndoInput,
     taskwarrior_add,
+    taskwarrior_annotate,
+    taskwarrior_bulk_get,
     taskwarrior_complete,
-    taskwarrior_modify,
     taskwarrior_delete,
     taskwarrior_get,
-    taskwarrior_bulk_get,
-    taskwarrior_annotate,
+    # Tool functions
+    taskwarrior_list,
+    taskwarrior_modify,
+    taskwarrior_projects,
     taskwarrior_start,
     taskwarrior_stop,
-    taskwarrior_projects,
+    taskwarrior_summary,
     taskwarrior_tags,
     taskwarrior_undo,
-    taskwarrior_summary,
 )
-
+from taskwarrior_mcp import (
+    _format_task_markdown as format_task_markdown,
+)
+from taskwarrior_mcp import (
+    _format_tasks_markdown as format_tasks_markdown,
+)
+from taskwarrior_mcp import (
+    _get_tasks_json as get_tasks_json,
+)
+from taskwarrior_mcp import (
+    # Private functions (for testing)
+    _run_task_command as run_task_command,
+)
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_task():
@@ -101,6 +110,7 @@ def sample_tasks():
 # Input Model Tests
 # ============================================================================
 
+
 class TestInputModels:
     """Tests for Pydantic input models."""
 
@@ -118,7 +128,7 @@ class TestInputModels:
             filter="project:work",
             status=TaskStatus.COMPLETED,
             limit=10,
-            response_format=ResponseFormat.JSON
+            response_format=ResponseFormat.JSON,
         )
         assert input_model.filter == "project:work"
         assert input_model.status == TaskStatus.COMPLETED
@@ -155,7 +165,7 @@ class TestInputModels:
             priority=Priority.HIGH,
             due="tomorrow",
             tags=["urgent", "review"],
-            depends="1,2"
+            depends="1,2",
         )
         assert input_model.description == "Test task"
         assert input_model.project == "work"
@@ -188,7 +198,7 @@ class TestInputModels:
             description="Updated description",
             priority="H",
             add_tags=["new-tag"],
-            remove_tags=["old-tag"]
+            remove_tags=["old-tag"],
         )
         assert input_model.task_id == "3"
         assert input_model.description == "Updated description"
@@ -237,6 +247,7 @@ class TestInputModels:
 # Enum Tests
 # ============================================================================
 
+
 class TestEnums:
     """Tests for enum values."""
 
@@ -264,17 +275,14 @@ class TestEnums:
 # Utility Function Tests
 # ============================================================================
 
+
 class TestRunTaskCommand:
     """Tests for the run_task_command utility function."""
 
     def test_run_task_command_success(self):
         """Test successful command execution."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             success, output = run_task_command(["add", "Test"])
             assert success is True
             assert output == "Created task 1."
@@ -283,11 +291,7 @@ class TestRunTaskCommand:
     def test_run_task_command_error(self):
         """Test command execution with error."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="Task not found."
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Task not found.")
             success, output = run_task_command(["complete", "999"])
             assert success is False
             assert "Task not found" in output
@@ -295,6 +299,7 @@ class TestRunTaskCommand:
     def test_run_task_command_timeout(self):
         """Test command execution timeout."""
         import subprocess
+
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired(cmd="task", timeout=30)
             success, output = run_task_command(["list"])
@@ -325,9 +330,7 @@ class TestGetTasksJson:
         """Test successful JSON parsing."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             success, tasks = get_tasks_json()
             assert success is True
@@ -336,11 +339,7 @@ class TestGetTasksJson:
     def test_get_tasks_json_empty(self):
         """Test empty task list."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             success, tasks = get_tasks_json()
             assert success is True
             assert tasks == []
@@ -349,9 +348,7 @@ class TestGetTasksJson:
         """Test with filter expression."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks[:1]),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks[:1]), stderr=""
             )
             success, tasks = get_tasks_json(filter_expr="project:work")
             assert success is True
@@ -363,9 +360,7 @@ class TestGetTasksJson:
         """Test different status filters."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
 
             # Test pending status
@@ -383,11 +378,7 @@ class TestGetTasksJson:
     def test_get_tasks_json_parse_error(self):
         """Test handling of invalid JSON."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="not valid json",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="not valid json", stderr="")
             success, result = get_tasks_json()
             assert success is False
             assert "Failed to parse" in result
@@ -398,12 +389,7 @@ class TestFormatTaskMarkdown:
 
     def test_format_basic_task(self):
         """Test formatting a basic task."""
-        task = {
-            "id": 1,
-            "description": "Test task",
-            "status": "pending",
-            "urgency": 5.0
-        }
+        task = {"id": 1, "description": "Test task", "status": "pending", "urgency": 5.0}
         result = format_task_markdown(task)
         assert "[1]" in result
         assert "Test task" in result
@@ -415,7 +401,7 @@ class TestFormatTaskMarkdown:
             "description": "Test task",
             "project": "work",
             "status": "pending",
-            "urgency": 5.0
+            "urgency": 5.0,
         }
         result = format_task_markdown(task)
         assert "work" in result
@@ -428,7 +414,7 @@ class TestFormatTaskMarkdown:
             "description": "Test task",
             "priority": "H",
             "status": "pending",
-            "urgency": 8.0
+            "urgency": 8.0,
         }
         result = format_task_markdown(task)
         assert "High" in result
@@ -447,7 +433,7 @@ class TestFormatTaskMarkdown:
             "description": "Test task",
             "tags": ["urgent", "review"],
             "status": "pending",
-            "urgency": 5.0
+            "urgency": 5.0,
         }
         result = format_task_markdown(task)
         assert "urgent" in result
@@ -460,7 +446,7 @@ class TestFormatTaskMarkdown:
             "description": "Test task",
             "due": "20250201T120000Z",
             "status": "pending",
-            "urgency": 10.0
+            "urgency": 10.0,
         }
         result = format_task_markdown(task)
         assert "Due" in result
@@ -472,8 +458,8 @@ class TestFormatTaskMarkdown:
             "description": "Test task",
             "annotations": [
                 {"entry": "20250130T100000Z", "description": "First note"},
-                {"entry": "20250130T110000Z", "description": "Second note"}
-            ]
+                {"entry": "20250130T110000Z", "description": "Second note"},
+            ],
         }
         result = format_task_markdown(task)
         assert "Notes" in result
@@ -514,6 +500,7 @@ class TestFormatTasksMarkdown:
 # Tool Function Tests
 # ============================================================================
 
+
 class TestTaskwarriorList:
     """Tests for the taskwarrior_list tool."""
 
@@ -522,9 +509,7 @@ class TestTaskwarriorList:
         """Test listing tasks in markdown format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListTasksInput()
             result = await taskwarrior_list(params)
@@ -536,9 +521,7 @@ class TestTaskwarriorList:
         """Test listing tasks in JSON format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListTasksInput(response_format=ResponseFormat.JSON)
             result = await taskwarrior_list(params)
@@ -552,9 +535,7 @@ class TestTaskwarriorList:
         """Test listing tasks with limit."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListTasksInput(limit=2, response_format=ResponseFormat.JSON)
             result = await taskwarrior_list(params)
@@ -567,9 +548,7 @@ class TestTaskwarriorList:
         """Test listing tasks with filter."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks[:1]),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks[:1]), stderr=""
             )
             params = ListTasksInput(filter="project:work")
             result = await taskwarrior_list(params)
@@ -579,11 +558,7 @@ class TestTaskwarriorList:
     async def test_list_tasks_error(self):
         """Test handling errors in list."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="Database error"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Database error")
             params = ListTasksInput()
             result = await taskwarrior_list(params)
             assert "Error" in result
@@ -596,11 +571,7 @@ class TestTaskwarriorAdd:
     async def test_add_simple_task(self):
         """Test adding a simple task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             params = AddTaskInput(description="Buy groceries")
             result = await taskwarrior_add(params)
             assert "Task created successfully" in result
@@ -610,13 +581,9 @@ class TestTaskwarriorAdd:
     async def test_add_task_with_project(self):
         """Test adding a task with project."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             params = AddTaskInput(description="Review PR", project="work")
-            result = await taskwarrior_add(params)
+            await taskwarrior_add(params)
             # Verify project was included in command
             call_args = mock_run.call_args[0][0]
             assert any("project:" in arg for arg in call_args)
@@ -625,13 +592,9 @@ class TestTaskwarriorAdd:
     async def test_add_task_with_priority(self):
         """Test adding a task with priority."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             params = AddTaskInput(description="Fix bug", priority=Priority.HIGH)
-            result = await taskwarrior_add(params)
+            await taskwarrior_add(params)
             call_args = mock_run.call_args[0][0]
             assert any("priority:H" in arg for arg in call_args)
 
@@ -639,13 +602,9 @@ class TestTaskwarriorAdd:
     async def test_add_task_with_due_date(self):
         """Test adding a task with due date."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             params = AddTaskInput(description="Submit report", due="friday")
-            result = await taskwarrior_add(params)
+            await taskwarrior_add(params)
             call_args = mock_run.call_args[0][0]
             assert any("due:" in arg for arg in call_args)
 
@@ -653,13 +612,9 @@ class TestTaskwarriorAdd:
     async def test_add_task_with_tags(self):
         """Test adding a task with tags."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 1.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 1.", stderr="")
             params = AddTaskInput(description="Call mom", tags=["personal", "important"])
-            result = await taskwarrior_add(params)
+            await taskwarrior_add(params)
             call_args = mock_run.call_args[0][0]
             assert any("+personal" in arg or "+important" in arg for arg in call_args)
 
@@ -667,13 +622,9 @@ class TestTaskwarriorAdd:
     async def test_add_task_with_depends(self):
         """Test adding a task with dependencies."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Created task 2.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Created task 2.", stderr="")
             params = AddTaskInput(description="Deploy", depends="1")
-            result = await taskwarrior_add(params)
+            await taskwarrior_add(params)
             call_args = mock_run.call_args[0][0]
             assert any("depends:" in arg for arg in call_args)
 
@@ -681,11 +632,7 @@ class TestTaskwarriorAdd:
     async def test_add_task_error(self):
         """Test handling errors when adding task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="Invalid date format"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Invalid date format")
             params = AddTaskInput(description="Test", due="invalid")
             result = await taskwarrior_add(params)
             assert "Error" in result
@@ -698,11 +645,7 @@ class TestTaskwarriorComplete:
     async def test_complete_task(self):
         """Test completing a task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Completed task 5.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Completed task 5.", stderr="")
             params = CompleteTaskInput(task_id="5")
             result = await taskwarrior_complete(params)
             assert "marked as complete" in result
@@ -712,11 +655,7 @@ class TestTaskwarriorComplete:
     async def test_complete_task_not_found(self):
         """Test completing non-existent task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="No matches."
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="No matches.")
             params = CompleteTaskInput(task_id="999")
             result = await taskwarrior_complete(params)
             assert "Error" in result
@@ -729,11 +668,7 @@ class TestTaskwarriorModify:
     async def test_modify_description(self):
         """Test modifying task description."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Modified 1 task.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Modified 1 task.", stderr="")
             params = ModifyTaskInput(task_id="5", description="New description")
             result = await taskwarrior_modify(params)
             assert "modified successfully" in result
@@ -742,13 +677,9 @@ class TestTaskwarriorModify:
     async def test_modify_project(self):
         """Test modifying task project."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Modified 1 task.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Modified 1 task.", stderr="")
             params = ModifyTaskInput(task_id="5", project="new-project")
-            result = await taskwarrior_modify(params)
+            await taskwarrior_modify(params)
             call_args = mock_run.call_args[0][0]
             assert any("project:" in arg for arg in call_args)
 
@@ -756,13 +687,9 @@ class TestTaskwarriorModify:
     async def test_modify_remove_project(self):
         """Test removing task project."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Modified 1 task.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Modified 1 task.", stderr="")
             params = ModifyTaskInput(task_id="5", project="")
-            result = await taskwarrior_modify(params)
+            await taskwarrior_modify(params)
             call_args = mock_run.call_args[0][0]
             assert "project:" in call_args
 
@@ -770,13 +697,9 @@ class TestTaskwarriorModify:
     async def test_modify_add_tags(self):
         """Test adding tags to task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Modified 1 task.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Modified 1 task.", stderr="")
             params = ModifyTaskInput(task_id="5", add_tags=["urgent", "review"])
-            result = await taskwarrior_modify(params)
+            await taskwarrior_modify(params)
             call_args = mock_run.call_args[0][0]
             assert any("+urgent" in arg or "+review" in arg for arg in call_args)
 
@@ -784,13 +707,9 @@ class TestTaskwarriorModify:
     async def test_modify_remove_tags(self):
         """Test removing tags from task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Modified 1 task.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Modified 1 task.", stderr="")
             params = ModifyTaskInput(task_id="5", remove_tags=["old-tag"])
-            result = await taskwarrior_modify(params)
+            await taskwarrior_modify(params)
             call_args = mock_run.call_args[0][0]
             assert any("-old-tag" in arg for arg in call_args)
 
@@ -802,11 +721,7 @@ class TestTaskwarriorDelete:
     async def test_delete_task(self):
         """Test deleting a task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Deleted task 5.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Deleted task 5.", stderr="")
             params = DeleteTaskInput(task_id="5")
             result = await taskwarrior_delete(params)
             assert "deleted" in result.lower()
@@ -816,11 +731,7 @@ class TestTaskwarriorDelete:
     async def test_delete_task_not_found(self):
         """Test deleting non-existent task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="No matches."
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="No matches.")
             params = DeleteTaskInput(task_id="999")
             result = await taskwarrior_delete(params)
             assert "Error" in result
@@ -834,9 +745,7 @@ class TestTaskwarriorGet:
         """Test getting task in markdown format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps([sample_task]),
-                stderr=""
+                returncode=0, stdout=json.dumps([sample_task]), stderr=""
             )
             params = GetTaskInput(task_id="1")
             result = await taskwarrior_get(params)
@@ -848,9 +757,7 @@ class TestTaskwarriorGet:
         """Test getting task in JSON format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps([sample_task]),
-                stderr=""
+                returncode=0, stdout=json.dumps([sample_task]), stderr=""
             )
             params = GetTaskInput(task_id="1", response_format=ResponseFormat.JSON)
             result = await taskwarrior_get(params)
@@ -861,11 +768,7 @@ class TestTaskwarriorGet:
     async def test_get_task_not_found(self):
         """Test getting non-existent task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="[]",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
             params = GetTaskInput(task_id="999")
             result = await taskwarrior_get(params)
             assert "not found" in result.lower()
@@ -918,9 +821,7 @@ class TestTaskwarriorBulkGet:
         """Test getting multiple tasks in markdown format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks[:2]),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks[:2]), stderr=""
             )
             params = BulkGetTasksInput(task_ids=["1", "2"])
             result = await taskwarrior_bulk_get(params)
@@ -933,9 +834,7 @@ class TestTaskwarriorBulkGet:
         """Test getting multiple tasks in JSON format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks[:2]),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks[:2]), stderr=""
             )
             params = BulkGetTasksInput(task_ids=["1", "2"], response_format=ResponseFormat.JSON)
             result = await taskwarrior_bulk_get(params)
@@ -948,9 +847,7 @@ class TestTaskwarriorBulkGet:
         """Test getting a single task using bulk get."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps([sample_task]),
-                stderr=""
+                returncode=0, stdout=json.dumps([sample_task]), stderr=""
             )
             params = BulkGetTasksInput(task_ids=["1"])
             result = await taskwarrior_bulk_get(params)
@@ -962,9 +859,7 @@ class TestTaskwarriorBulkGet:
         """Test bulk get when some tasks are not found."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps([sample_tasks[0]]),
-                stderr=""
+                returncode=0, stdout=json.dumps([sample_tasks[0]]), stderr=""
             )
             params = BulkGetTasksInput(task_ids=["1", "999"])
             result = await taskwarrior_bulk_get(params)
@@ -976,11 +871,7 @@ class TestTaskwarriorBulkGet:
     async def test_bulk_get_none_found(self):
         """Test bulk get when no tasks are found."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="[]",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
             params = BulkGetTasksInput(task_ids=["999", "998"])
             result = await taskwarrior_bulk_get(params)
             assert "Error" in result or "not found" in result.lower()
@@ -989,11 +880,7 @@ class TestTaskwarriorBulkGet:
     async def test_bulk_get_command_error(self):
         """Test handling errors from Taskwarrior command."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="Database error"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Database error")
             params = BulkGetTasksInput(task_ids=["1", "2"])
             result = await taskwarrior_bulk_get(params)
             assert "Error" in result
@@ -1003,9 +890,7 @@ class TestTaskwarriorBulkGet:
         """Test that bulk get uses OR filter syntax."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = BulkGetTasksInput(task_ids=["1", "2", "3"])
             await taskwarrior_bulk_get(params)
@@ -1021,11 +906,7 @@ class TestTaskwarriorAnnotate:
     async def test_annotate_task(self):
         """Test adding annotation to task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Annotating task 5.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Annotating task 5.", stderr="")
             params = AnnotateTaskInput(task_id="5", annotation="This is a note")
             result = await taskwarrior_annotate(params)
             assert "Annotation added" in result
@@ -1035,11 +916,7 @@ class TestTaskwarriorAnnotate:
     async def test_annotate_task_not_found(self):
         """Test annotating non-existent task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="No matches."
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="No matches.")
             params = AnnotateTaskInput(task_id="999", annotation="Note")
             result = await taskwarrior_annotate(params)
             assert "Error" in result
@@ -1052,11 +929,7 @@ class TestTaskwarriorStart:
     async def test_start_task(self):
         """Test starting a task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Starting task 5.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Starting task 5.", stderr="")
             params = StartTaskInput(task_id="5")
             result = await taskwarrior_start(params)
             assert "started" in result.lower()
@@ -1070,11 +943,7 @@ class TestTaskwarriorStop:
     async def test_stop_task(self):
         """Test stopping a task."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Stopping task 5.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Stopping task 5.", stderr="")
             params = StopTaskInput(task_id="5")
             result = await taskwarrior_stop(params)
             assert "stopped" in result.lower()
@@ -1089,9 +958,7 @@ class TestTaskwarriorProjects:
         """Test listing projects in markdown format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListProjectsInput()
             result = await taskwarrior_projects(params)
@@ -1104,9 +971,7 @@ class TestTaskwarriorProjects:
         """Test listing projects in JSON format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListProjectsInput(response_format=ResponseFormat.JSON)
             result = await taskwarrior_projects(params)
@@ -1119,11 +984,7 @@ class TestTaskwarriorProjects:
     async def test_list_projects_empty(self):
         """Test listing projects with no tasks."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="[]",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
             params = ListProjectsInput()
             result = await taskwarrior_projects(params)
             assert "No projects found" in result
@@ -1137,9 +998,7 @@ class TestTaskwarriorTags:
         """Test listing tags in markdown format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListTagsInput()
             result = await taskwarrior_tags(params)
@@ -1152,9 +1011,7 @@ class TestTaskwarriorTags:
         """Test listing tags in JSON format."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             params = ListTagsInput(response_format=ResponseFormat.JSON)
             result = await taskwarrior_tags(params)
@@ -1168,9 +1025,7 @@ class TestTaskwarriorTags:
         """Test listing tags with no tagged tasks."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps([{"id": 1, "description": "No tags"}]),
-                stderr=""
+                returncode=0, stdout=json.dumps([{"id": 1, "description": "No tags"}]), stderr=""
             )
             params = ListTagsInput()
             result = await taskwarrior_tags(params)
@@ -1184,11 +1039,7 @@ class TestTaskwarriorUndo:
     async def test_undo_success(self):
         """Test successful undo."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Reverted change.",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="Reverted change.", stderr="")
             params = UndoInput()
             result = await taskwarrior_undo(params)
             assert "Undo successful" in result
@@ -1197,11 +1048,7 @@ class TestTaskwarriorUndo:
     async def test_undo_nothing_to_undo(self):
         """Test undo with nothing to undo."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="No changes to undo."
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="No changes to undo.")
             params = UndoInput()
             result = await taskwarrior_undo(params)
             assert "Error" in result
@@ -1215,9 +1062,7 @@ class TestTaskwarriorSummary:
         """Test summary with pending tasks."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(sample_tasks),
-                stderr=""
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
             )
             result = await taskwarrior_summary()
             assert "Task Summary" in result
@@ -1230,11 +1075,7 @@ class TestTaskwarriorSummary:
     async def test_summary_empty(self):
         """Test summary with no pending tasks."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="[]",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
             result = await taskwarrior_summary()
             assert "No pending tasks" in result
 
@@ -1242,14 +1083,17 @@ class TestTaskwarriorSummary:
     async def test_summary_with_active_tasks(self):
         """Test summary counts active tasks."""
         tasks_with_active = [
-            {"id": 1, "description": "Active task", "start": "20250130T100000Z", "status": "pending"},
+            {
+                "id": 1,
+                "description": "Active task",
+                "start": "20250130T100000Z",
+                "status": "pending",
+            },
             {"id": 2, "description": "Normal task", "status": "pending"},
         ]
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(tasks_with_active),
-                stderr=""
+                returncode=0, stdout=json.dumps(tasks_with_active), stderr=""
             )
             result = await taskwarrior_summary()
             assert "Active" in result
@@ -1266,12 +1110,667 @@ class TestTaskwarriorSummary:
         ]
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps(tasks_with_priorities),
-                stderr=""
+                returncode=0, stdout=json.dumps(tasks_with_priorities), stderr=""
             )
             result = await taskwarrior_summary()
             assert "High: 1" in result
             assert "Medium: 1" in result
             assert "Low: 1" in result
             assert "No priority: 1" in result
+
+
+# ============================================================================
+# Agent Intelligence Tools Tests
+# ============================================================================
+
+
+class TestSuggestInput:
+    """Tests for SuggestInput model."""
+
+    def test_suggest_input_defaults(self):
+        """Test SuggestInput with default values."""
+        from taskwarrior_mcp import SuggestInput
+
+        input_model = SuggestInput()
+        assert input_model.limit == 5
+        assert input_model.context is None
+        assert input_model.project is None
+        assert input_model.response_format == ResponseFormat.MARKDOWN
+
+    def test_suggest_input_custom(self):
+        """Test SuggestInput with custom values."""
+        from taskwarrior_mcp import SuggestInput
+
+        input_model = SuggestInput(
+            limit=10, context="quick_wins", project="work", response_format=ResponseFormat.JSON
+        )
+        assert input_model.limit == 10
+        assert input_model.context == "quick_wins"
+        assert input_model.project == "work"
+
+    def test_suggest_input_limit_bounds(self):
+        """Test SuggestInput limit validation."""
+        from taskwarrior_mcp import SuggestInput
+
+        assert SuggestInput(limit=1).limit == 1
+        assert SuggestInput(limit=20).limit == 20
+        with pytest.raises(ValueError):
+            SuggestInput(limit=0)
+        with pytest.raises(ValueError):
+            SuggestInput(limit=21)
+
+
+class TestTaskwarriorSuggest:
+    """Tests for the taskwarrior_suggest tool."""
+
+    @pytest.fixture
+    def tasks_for_suggestions(self):
+        """Tasks with varying priorities and attributes for testing suggestions."""
+        return [
+            {
+                "id": 1,
+                "description": "Overdue task",
+                "status": "pending",
+                "urgency": 15.0,  # High urgency indicates overdue
+                "due": "20250101T120000Z",
+                "priority": "H",
+            },
+            {
+                "id": 2,
+                "description": "Due tomorrow",
+                "status": "pending",
+                "urgency": 8.0,
+                "due": "20250201T120000Z",  # Assuming today is Jan 31
+            },
+            {
+                "id": 3,
+                "description": "Active task",
+                "status": "pending",
+                "urgency": 5.0,
+                "start": "20250130T100000Z",
+            },
+            {
+                "id": 4,
+                "description": "Low priority task",
+                "status": "pending",
+                "urgency": 2.0,
+                "priority": "L",
+            },
+            {
+                "id": 5,
+                "description": "Tagged next",
+                "status": "pending",
+                "urgency": 4.0,
+                "tags": ["next"],
+            },
+            {
+                "id": 6,
+                "description": "Blocks others",
+                "status": "pending",
+                "urgency": 6.0,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_suggest_returns_prioritized_list(self, tasks_for_suggestions):
+        """Test that suggest returns tasks in priority order."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_suggestions), stderr=""
+            )
+            params = SuggestInput()
+            result = await taskwarrior_suggest(params)
+            assert "Suggested" in result or "Suggest" in result
+            # Overdue task should appear (high urgency)
+            assert "Overdue task" in result
+
+    @pytest.mark.asyncio
+    async def test_suggest_respects_limit(self, tasks_for_suggestions):
+        """Test that suggest respects the limit parameter."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_suggestions), stderr=""
+            )
+            params = SuggestInput(limit=2, response_format=ResponseFormat.JSON)
+            result = await taskwarrior_suggest(params)
+            data = json.loads(result)
+            assert len(data["suggestions"]) <= 2
+
+    @pytest.mark.asyncio
+    async def test_suggest_filters_by_project(self, tasks_for_suggestions):
+        """Test that suggest can filter by project."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        tasks_with_project = [
+            {
+                "id": 1,
+                "description": "Work task",
+                "project": "work",
+                "urgency": 5.0,
+                "status": "pending",
+            },
+            {
+                "id": 2,
+                "description": "Personal task",
+                "project": "personal",
+                "urgency": 5.0,
+                "status": "pending",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_with_project), stderr=""
+            )
+            params = SuggestInput(project="work")
+            result = await taskwarrior_suggest(params)
+            assert "Work task" in result
+            # Personal task should be filtered out or ranked lower
+
+    @pytest.mark.asyncio
+    async def test_suggest_includes_reasons(self, tasks_for_suggestions):
+        """Test that suggestions include reasoning."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_suggestions), stderr=""
+            )
+            params = SuggestInput()
+            result = await taskwarrior_suggest(params)
+            # Should have some reasoning indicator
+            assert "Reason" in result or "→" in result or "reason" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_suggest_empty_tasks(self):
+        """Test suggest with no tasks."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+            params = SuggestInput()
+            result = await taskwarrior_suggest(params)
+            assert "no tasks" in result.lower() or "nothing" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_suggest_json_format(self, tasks_for_suggestions):
+        """Test suggest returns valid JSON."""
+        from taskwarrior_mcp import SuggestInput, taskwarrior_suggest
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_suggestions), stderr=""
+            )
+            params = SuggestInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_suggest(params)
+            data = json.loads(result)
+            assert "suggestions" in data
+            for suggestion in data["suggestions"]:
+                assert "task" in suggestion
+                assert "score" in suggestion
+                assert "reasons" in suggestion
+
+
+class TestReadyInput:
+    """Tests for ReadyInput model."""
+
+    def test_ready_input_defaults(self):
+        """Test ReadyInput with default values."""
+        from taskwarrior_mcp import ReadyInput
+
+        input_model = ReadyInput()
+        assert input_model.limit == 10
+        assert input_model.project is None
+        assert input_model.priority is None
+        assert input_model.include_active is True
+
+
+class TestTaskwarriorReady:
+    """Tests for the taskwarrior_ready tool."""
+
+    @pytest.fixture
+    def tasks_with_dependencies(self):
+        """Tasks with dependency relationships."""
+        return [
+            {
+                "id": 1,
+                "description": "Ready task",
+                "status": "pending",
+                "urgency": 5.0,
+            },
+            {
+                "id": 2,
+                "description": "Blocked task",
+                "status": "pending",
+                "urgency": 5.0,
+                "depends": "a1b2c3d4",  # Depends on task 1
+            },
+            {
+                "id": 3,
+                "description": "Another ready task",
+                "status": "pending",
+                "urgency": 8.0,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_ready_returns_unblocked_tasks(self, tasks_with_dependencies):
+        """Test that ready returns only unblocked tasks."""
+        from taskwarrior_mcp import ReadyInput, taskwarrior_ready
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_with_dependencies), stderr=""
+            )
+            params = ReadyInput()
+            result = await taskwarrior_ready(params)
+            assert "Ready" in result
+            # Task 2 is blocked, should not appear or be marked
+            assert "Ready task" in result or "Another ready task" in result
+
+    @pytest.mark.asyncio
+    async def test_ready_filters_by_project(self):
+        """Test ready can filter by project."""
+        from taskwarrior_mcp import ReadyInput, taskwarrior_ready
+
+        tasks = [
+            {
+                "id": 1,
+                "description": "Work task",
+                "project": "work",
+                "urgency": 5.0,
+                "status": "pending",
+            },
+            {
+                "id": 2,
+                "description": "Personal task",
+                "project": "personal",
+                "urgency": 5.0,
+                "status": "pending",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ReadyInput(project="work")
+            result = await taskwarrior_ready(params)
+            assert "Work task" in result
+
+    @pytest.mark.asyncio
+    async def test_ready_json_format(self, tasks_with_dependencies):
+        """Test ready returns valid JSON."""
+        from taskwarrior_mcp import ReadyInput, taskwarrior_ready
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_with_dependencies), stderr=""
+            )
+            params = ReadyInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_ready(params)
+            data = json.loads(result)
+            assert "tasks" in data
+            assert "count" in data
+
+
+class TestBlockedInput:
+    """Tests for BlockedInput model."""
+
+    def test_blocked_input_defaults(self):
+        """Test BlockedInput with default values."""
+        from taskwarrior_mcp import BlockedInput
+
+        input_model = BlockedInput()
+        assert input_model.limit == 10
+        assert input_model.show_blockers is True
+
+
+class TestTaskwarriorBlocked:
+    """Tests for the taskwarrior_blocked tool."""
+
+    @pytest.mark.asyncio
+    async def test_blocked_returns_blocked_tasks(self):
+        """Test that blocked returns tasks with dependencies."""
+        from taskwarrior_mcp import BlockedInput, taskwarrior_blocked
+
+        tasks = [
+            {
+                "id": 1,
+                "uuid": "uuid1",
+                "description": "Blocker task",
+                "status": "pending",
+                "urgency": 5.0,
+            },
+            {
+                "id": 2,
+                "description": "Blocked task",
+                "status": "pending",
+                "urgency": 5.0,
+                "depends": "uuid1",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = BlockedInput()
+            result = await taskwarrior_blocked(params)
+            assert "Blocked" in result
+            assert "Blocked task" in result
+
+    @pytest.mark.asyncio
+    async def test_blocked_shows_blockers(self):
+        """Test that blocked shows what's blocking each task."""
+        from taskwarrior_mcp import BlockedInput, taskwarrior_blocked
+
+        tasks = [
+            {"id": 1, "uuid": "uuid1", "description": "Blocker task", "status": "pending"},
+            {"id": 2, "description": "Blocked task", "status": "pending", "depends": "uuid1"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = BlockedInput(show_blockers=True)
+            result = await taskwarrior_blocked(params)
+            # Should show the blocker information
+            assert "Blocker" in result or "blocked by" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_blocked_empty_when_no_blocked_tasks(self):
+        """Test blocked with no blocked tasks."""
+        from taskwarrior_mcp import BlockedInput, taskwarrior_blocked
+
+        tasks = [
+            {"id": 1, "description": "Ready task", "status": "pending"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = BlockedInput()
+            result = await taskwarrior_blocked(params)
+            assert "no blocked" in result.lower() or "0" in result
+
+
+class TestDependenciesInput:
+    """Tests for DependenciesInput model."""
+
+    def test_dependencies_input_defaults(self):
+        """Test DependenciesInput with default values."""
+        from taskwarrior_mcp import DependenciesInput
+
+        input_model = DependenciesInput()
+        assert input_model.task_id is None
+        assert input_model.direction == "both"
+        assert input_model.depth == 3
+
+
+class TestTaskwarriorDependencies:
+    """Tests for the taskwarrior_dependencies tool."""
+
+    @pytest.mark.asyncio
+    async def test_dependencies_overview_mode(self):
+        """Test dependencies in overview mode (no task_id)."""
+        from taskwarrior_mcp import DependenciesInput, taskwarrior_dependencies
+
+        tasks = [
+            {"id": 1, "uuid": "uuid1", "description": "Blocker", "status": "pending"},
+            {
+                "id": 2,
+                "uuid": "uuid2",
+                "description": "Blocked",
+                "status": "pending",
+                "depends": "uuid1",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = DependenciesInput()
+            result = await taskwarrior_dependencies(params)
+            assert "Dependency" in result or "dependency" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_dependencies_specific_task(self):
+        """Test dependencies for a specific task."""
+        from taskwarrior_mcp import DependenciesInput, taskwarrior_dependencies
+
+        tasks = [
+            {"id": 1, "uuid": "uuid1", "description": "Blocker", "status": "pending"},
+            {
+                "id": 2,
+                "uuid": "uuid2",
+                "description": "Middle",
+                "status": "pending",
+                "depends": "uuid1",
+            },
+            {
+                "id": 3,
+                "uuid": "uuid3",
+                "description": "Blocked",
+                "status": "pending",
+                "depends": "uuid2",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = DependenciesInput(task_id="1")
+            result = await taskwarrior_dependencies(params)
+            assert "Blocker" in result or "#1" in result
+
+    @pytest.mark.asyncio
+    async def test_dependencies_json_format(self):
+        """Test dependencies returns valid JSON."""
+        from taskwarrior_mcp import DependenciesInput, taskwarrior_dependencies
+
+        tasks = [
+            {"id": 1, "uuid": "uuid1", "description": "Task 1", "status": "pending"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = DependenciesInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_dependencies(params)
+            data = json.loads(result)
+            assert "bottlenecks" in data or "ready" in data or "blocked" in data
+
+
+class TestTriageInput:
+    """Tests for TriageInput model."""
+
+    def test_triage_input_defaults(self):
+        """Test TriageInput with default values."""
+        from taskwarrior_mcp import TriageInput
+
+        input_model = TriageInput()
+        assert input_model.stale_days == 14
+        assert input_model.include_untagged is True
+        assert input_model.include_no_project is True
+        assert input_model.include_no_due is True
+        assert input_model.limit == 20
+
+
+class TestTaskwarriorTriage:
+    """Tests for the taskwarrior_triage tool."""
+
+    @pytest.fixture
+    def tasks_for_triage(self):
+        """Tasks with various triage conditions."""
+        return [
+            {
+                "id": 1,
+                "description": "Stale task",
+                "status": "pending",
+                "entry": "20250101T120000Z",  # Old entry date
+                "modified": "20250101T120000Z",
+            },
+            {
+                "id": 2,
+                "description": "No project task",
+                "status": "pending",
+                "entry": "20250130T120000Z",
+            },
+            {
+                "id": 3,
+                "description": "No tags task",
+                "status": "pending",
+                "project": "work",
+                "entry": "20250130T120000Z",
+            },
+            {
+                "id": 4,
+                "description": "Good task",
+                "status": "pending",
+                "project": "work",
+                "tags": ["review"],
+                "due": "20250215T120000Z",
+                "entry": "20250130T120000Z",
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_triage_finds_stale_tasks(self, tasks_for_triage):
+        """Test that triage finds stale tasks."""
+        from taskwarrior_mcp import TriageInput, taskwarrior_triage
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_triage), stderr=""
+            )
+            params = TriageInput(stale_days=14)
+            result = await taskwarrior_triage(params)
+            assert "Triage" in result
+            assert "Stale" in result or "stale" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_triage_finds_no_project(self, tasks_for_triage):
+        """Test that triage finds tasks without projects."""
+        from taskwarrior_mcp import TriageInput, taskwarrior_triage
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_triage), stderr=""
+            )
+            params = TriageInput(include_no_project=True)
+            result = await taskwarrior_triage(params)
+            assert "project" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_triage_finds_untagged(self, tasks_for_triage):
+        """Test that triage finds untagged tasks."""
+        from taskwarrior_mcp import TriageInput, taskwarrior_triage
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_triage), stderr=""
+            )
+            params = TriageInput(include_untagged=True)
+            result = await taskwarrior_triage(params)
+            assert "tag" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_triage_json_format(self, tasks_for_triage):
+        """Test triage returns valid JSON."""
+        from taskwarrior_mcp import TriageInput, taskwarrior_triage
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(tasks_for_triage), stderr=""
+            )
+            params = TriageInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_triage(params)
+            data = json.loads(result)
+            assert "stale" in data or "no_project" in data or "untagged" in data
+
+    @pytest.mark.asyncio
+    async def test_triage_empty_when_all_good(self):
+        """Test triage when all tasks are well-organized."""
+        from taskwarrior_mcp import TriageInput, taskwarrior_triage
+
+        good_tasks = [
+            {
+                "id": 1,
+                "description": "Good task",
+                "status": "pending",
+                "project": "work",
+                "tags": ["review"],
+                "due": "20250215T120000Z",
+                "entry": "20250130T120000Z",
+                "modified": "20250130T120000Z",
+            },
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(good_tasks), stderr=""
+            )
+            params = TriageInput()
+            result = await taskwarrior_triage(params)
+            # Should indicate no issues or empty categories
+            assert "0" in result or "no items" in result.lower() or "looking good" in result.lower()
+
+
+class TestContextInput:
+    """Tests for ContextInput model."""
+
+    def test_context_input_required(self):
+        """Test ContextInput with required task_id."""
+        from taskwarrior_mcp import ContextInput
+
+        input_model = ContextInput(task_id="5")
+        assert input_model.task_id == "5"
+        assert input_model.include_related is True
+        assert input_model.include_activity is True
+
+
+class TestTaskwarriorContext:
+    """Tests for the taskwarrior_context tool."""
+
+    @pytest.mark.asyncio
+    async def test_context_returns_rich_details(self, sample_task):
+        """Test that context returns rich task details."""
+        from taskwarrior_mcp import ContextInput, taskwarrior_context
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps([sample_task]), stderr=""
+            )
+            params = ContextInput(task_id="1")
+            result = await taskwarrior_context(params)
+            assert "Test task" in result
+            # Should have computed fields
+            assert "age" in result.lower() or "created" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_context_includes_related_tasks(self, sample_tasks):
+        """Test that context shows related tasks."""
+        from taskwarrior_mcp import ContextInput, taskwarrior_context
+
+        # First call gets main task, second gets all for related
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps(sample_tasks), stderr=""
+            )
+            params = ContextInput(task_id="1", include_related=True)
+            result = await taskwarrior_context(params)
+            # Should mention related tasks or project
+            assert "work" in result.lower() or "related" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_context_json_format(self, sample_task):
+        """Test context returns valid JSON."""
+        from taskwarrior_mcp import ContextInput, taskwarrior_context
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=json.dumps([sample_task]), stderr=""
+            )
+            params = ContextInput(task_id="1", response_format=ResponseFormat.JSON)
+            result = await taskwarrior_context(params)
+            data = json.loads(result)
+            assert "task" in data
+            assert "computed" in data or "age" in data
+
+    @pytest.mark.asyncio
+    async def test_context_task_not_found(self):
+        """Test context when task doesn't exist."""
+        from taskwarrior_mcp import ContextInput, taskwarrior_context
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+            params = ContextInput(task_id="999")
+            result = await taskwarrior_context(params)
+            assert "not found" in result.lower() or "error" in result.lower()
