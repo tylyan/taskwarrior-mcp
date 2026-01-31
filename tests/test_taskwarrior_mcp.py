@@ -8,8 +8,11 @@ import pytest
 from taskwarrior_mcp import (
     AddTaskInput,
     AnnotateTaskInput,
+    BlockedTaskInfo,
+    BottleneckInfo,
     BulkGetTasksInput,
     CompleteTaskInput,
+    ComputedInsights,
     DeleteTaskInput,
     GetTaskInput,
     ListProjectsInput,
@@ -20,10 +23,17 @@ from taskwarrior_mcp import (
     Priority,
     # Enums
     ResponseFormat,
+    ScoredTask,
     StartTaskInput,
     StopTaskInput,
+    # Internal models
+    TaskAnnotation,
+    TaskModel,
     TaskStatus,
     UndoInput,
+    # Parser helpers
+    _parse_task,
+    _parse_tasks,
     taskwarrior_add,
     taskwarrior_annotate,
     taskwarrior_bulk_get,
@@ -61,7 +71,7 @@ from taskwarrior_mcp import (
 
 @pytest.fixture
 def sample_task():
-    """A single sample task."""
+    """A single sample task as dict (for tool tests that mock subprocess)."""
     return {
         "id": 1,
         "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -76,8 +86,24 @@ def sample_task():
 
 
 @pytest.fixture
+def sample_task_model():
+    """A single sample task as TaskModel instance."""
+    return TaskModel(
+        id=1,
+        uuid="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        description="Test task",
+        status="pending",
+        urgency=5.0,
+        project="test-project",
+        priority="H",
+        tags=["tag1", "tag2"],
+        due="20250201T120000Z",
+    )
+
+
+@pytest.fixture
 def sample_tasks():
-    """A list of sample tasks."""
+    """A list of sample tasks as dicts (for tool tests that mock subprocess)."""
     return [
         {
             "id": 1,
@@ -103,6 +129,37 @@ def sample_tasks():
             "project": "work",
             "tags": ["review"],
         },
+    ]
+
+
+@pytest.fixture
+def sample_task_models():
+    """A list of sample tasks as TaskModel instances."""
+    return [
+        TaskModel(
+            id=1,
+            description="Task one",
+            status="pending",
+            urgency=8.0,
+            project="work",
+            priority="H",
+            tags=["urgent"],
+        ),
+        TaskModel(
+            id=2,
+            description="Task two",
+            status="pending",
+            urgency=3.0,
+            project="personal",
+        ),
+        TaskModel(
+            id=3,
+            description="Task three",
+            status="pending",
+            urgency=5.0,
+            project="work",
+            tags=["review"],
+        ),
     ]
 
 
@@ -389,78 +446,78 @@ class TestFormatTaskMarkdown:
 
     def test_format_basic_task(self):
         """Test formatting a basic task."""
-        task = {"id": 1, "description": "Test task", "status": "pending", "urgency": 5.0}
+        task = _parse_task({"id": 1, "description": "Test task", "status": "pending", "urgency": 5.0})
         result = format_task_markdown(task)
         assert "[1]" in result
         assert "Test task" in result
 
     def test_format_task_with_project(self):
         """Test formatting a task with project."""
-        task = {
+        task = _parse_task({
             "id": 1,
             "description": "Test task",
             "project": "work",
             "status": "pending",
             "urgency": 5.0,
-        }
+        })
         result = format_task_markdown(task)
         assert "work" in result
         assert "Project" in result
 
     def test_format_task_with_priority(self):
         """Test formatting a task with priority."""
-        task = {
+        task = _parse_task({
             "id": 1,
             "description": "Test task",
             "priority": "H",
             "status": "pending",
             "urgency": 8.0,
-        }
+        })
         result = format_task_markdown(task)
         assert "High" in result
 
     def test_format_task_with_all_priorities(self):
         """Test all priority levels format correctly."""
         for priority, expected in [("H", "High"), ("M", "Medium"), ("L", "Low")]:
-            task = {"id": 1, "description": "Test", "priority": priority}
+            task = _parse_task({"id": 1, "description": "Test", "priority": priority})
             result = format_task_markdown(task)
             assert expected in result
 
     def test_format_task_with_tags(self):
         """Test formatting a task with tags."""
-        task = {
+        task = _parse_task({
             "id": 1,
             "description": "Test task",
             "tags": ["urgent", "review"],
             "status": "pending",
             "urgency": 5.0,
-        }
+        })
         result = format_task_markdown(task)
         assert "urgent" in result
         assert "review" in result
 
     def test_format_task_with_due_date(self):
         """Test formatting a task with due date."""
-        task = {
+        task = _parse_task({
             "id": 1,
             "description": "Test task",
             "due": "20250201T120000Z",
             "status": "pending",
             "urgency": 10.0,
-        }
+        })
         result = format_task_markdown(task)
         assert "Due" in result
 
     def test_format_task_with_annotations(self):
         """Test formatting a task with annotations."""
-        task = {
+        task = _parse_task({
             "id": 1,
             "description": "Test task",
             "annotations": [
                 {"entry": "20250130T100000Z", "description": "First note"},
                 {"entry": "20250130T110000Z", "description": "Second note"},
             ],
-        }
+        })
         result = format_task_markdown(task)
         assert "Notes" in result
         assert "First note" in result
@@ -469,7 +526,7 @@ class TestFormatTaskMarkdown:
     def test_format_task_status_icons(self):
         """Test status icons in formatting."""
         for status in ["pending", "completed", "deleted"]:
-            task = {"id": 1, "description": "Test", "status": status}
+            task = _parse_task({"id": 1, "description": "Test", "status": status})
             result = format_task_markdown(task)
             assert "Test" in result  # Just verify it doesn't crash
 
@@ -484,7 +541,7 @@ class TestFormatTasksMarkdown:
 
     def test_format_multiple_tasks(self, sample_tasks):
         """Test formatting multiple tasks."""
-        result = format_tasks_markdown(sample_tasks)
+        result = format_tasks_markdown(_parse_tasks(sample_tasks))
         assert "3 task(s)" in result
         assert "Task one" in result
         assert "Task two" in result
@@ -492,7 +549,7 @@ class TestFormatTasksMarkdown:
 
     def test_format_with_custom_title(self, sample_tasks):
         """Test formatting with custom title."""
-        result = format_tasks_markdown(sample_tasks, title="Work Tasks")
+        result = format_tasks_markdown(_parse_tasks(sample_tasks), title="Work Tasks")
         assert "Work Tasks" in result
 
 
@@ -1774,3 +1831,315 @@ class TestTaskwarriorContext:
             params = ContextInput(task_id="999")
             result = await taskwarrior_context(params)
             assert "not found" in result.lower() or "error" in result.lower()
+
+
+# ============================================================================
+# Internal Pydantic Model Tests
+# ============================================================================
+
+
+class TestTaskAnnotation:
+    """Tests for the TaskAnnotation model."""
+
+    def test_task_annotation_defaults(self):
+        """Test TaskAnnotation with default values."""
+        annotation = TaskAnnotation(description="Test note")
+        assert annotation.description == "Test note"
+        assert annotation.entry is None
+
+    def test_task_annotation_with_entry(self):
+        """Test TaskAnnotation with entry timestamp."""
+        annotation = TaskAnnotation(entry="20250130T100000Z", description="Test note")
+        assert annotation.entry == "20250130T100000Z"
+        assert annotation.description == "Test note"
+
+    def test_task_annotation_from_dict(self):
+        """Test creating TaskAnnotation from dict."""
+        data = {"entry": "20250130T100000Z", "description": "Note from dict"}
+        annotation = TaskAnnotation.model_validate(data)
+        assert annotation.entry == "20250130T100000Z"
+        assert annotation.description == "Note from dict"
+
+
+class TestTaskModel:
+    """Tests for the TaskModel model."""
+
+    def test_task_model_minimal(self):
+        """Test TaskModel with minimal data."""
+        task = TaskModel()
+        assert task.id is None
+        assert task.uuid is None
+        assert task.description == ""
+        assert task.status == "pending"
+        assert task.urgency == 0.0
+        assert task.tags == []
+        assert task.annotations == []
+
+    def test_task_model_full(self):
+        """Test TaskModel with all fields."""
+        task = TaskModel(
+            id=1,
+            uuid="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            description="Test task",
+            status="pending",
+            urgency=5.0,
+            project="work",
+            priority="H",
+            tags=["urgent", "review"],
+            due="20250201T120000Z",
+            entry="20250130T100000Z",
+            modified="20250130T110000Z",
+            start="20250130T105000Z",
+            depends="uuid1,uuid2",
+            annotations=[TaskAnnotation(entry="20250130T100000Z", description="Note")],
+        )
+        assert task.id == 1
+        assert task.uuid == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        assert task.description == "Test task"
+        assert task.status == "pending"
+        assert task.urgency == 5.0
+        assert task.project == "work"
+        assert task.priority == "H"
+        assert task.tags == ["urgent", "review"]
+        assert task.due == "20250201T120000Z"
+        assert task.entry == "20250130T100000Z"
+        assert task.modified == "20250130T110000Z"
+        assert task.start == "20250130T105000Z"
+        assert task.depends == "uuid1,uuid2"
+        assert len(task.annotations) == 1
+
+    def test_task_model_from_dict(self):
+        """Test creating TaskModel from dict (like Taskwarrior JSON output)."""
+        data = {
+            "id": 1,
+            "uuid": "test-uuid",
+            "description": "Test task",
+            "status": "pending",
+            "urgency": 8.0,
+            "project": "work",
+            "priority": "H",
+            "tags": ["urgent"],
+            "due": "20250201T120000Z",
+        }
+        task = TaskModel.model_validate(data)
+        assert task.id == 1
+        assert task.uuid == "test-uuid"
+        assert task.description == "Test task"
+        assert task.priority == "H"
+        assert task.tags == ["urgent"]
+
+    def test_task_model_with_annotations_dict(self):
+        """Test TaskModel with annotations as list of dicts."""
+        data = {
+            "id": 1,
+            "description": "Task with notes",
+            "annotations": [
+                {"entry": "20250130T100000Z", "description": "First note"},
+                {"entry": "20250130T110000Z", "description": "Second note"},
+            ],
+        }
+        task = TaskModel.model_validate(data)
+        assert len(task.annotations) == 2
+        assert task.annotations[0].description == "First note"
+        assert task.annotations[1].description == "Second note"
+
+    def test_task_model_allows_extra_fields(self):
+        """Test that TaskModel allows extra fields from Taskwarrior."""
+        data = {
+            "id": 1,
+            "description": "Test",
+            "custom_field": "custom_value",
+            "another_field": 123,
+        }
+        task = TaskModel.model_validate(data)
+        assert task.id == 1
+        assert task.description == "Test"
+        # Extra fields should be preserved
+        assert task.model_extra.get("custom_field") == "custom_value"
+        assert task.model_extra.get("another_field") == 123
+
+    def test_task_model_to_dict(self):
+        """Test converting TaskModel back to dict."""
+        task = TaskModel(
+            id=1, description="Test task", status="pending", urgency=5.0, tags=["urgent"]
+        )
+        data = task.model_dump()
+        assert data["id"] == 1
+        assert data["description"] == "Test task"
+        assert data["tags"] == ["urgent"]
+
+
+class TestScoredTask:
+    """Tests for the ScoredTask model."""
+
+    def test_scored_task(self):
+        """Test ScoredTask with task, score, and reasons."""
+        task = TaskModel(id=1, description="Test task", urgency=8.0)
+        scored = ScoredTask(task=task, score=85.0, reasons=["High priority", "Due soon"])
+        assert scored.task.id == 1
+        assert scored.score == 85.0
+        assert len(scored.reasons) == 2
+        assert "High priority" in scored.reasons
+
+    def test_scored_task_from_dict(self):
+        """Test ScoredTask from nested dict."""
+        data = {
+            "task": {"id": 1, "description": "Test", "urgency": 5.0},
+            "score": 50.0,
+            "reasons": ["Overdue"],
+        }
+        scored = ScoredTask.model_validate(data)
+        assert scored.task.id == 1
+        assert scored.score == 50.0
+        assert scored.reasons == ["Overdue"]
+
+
+class TestBlockedTaskInfo:
+    """Tests for the BlockedTaskInfo model."""
+
+    def test_blocked_task_info_minimal(self):
+        """Test BlockedTaskInfo with minimal data."""
+        task = TaskModel(id=1, description="Blocked task")
+        info = BlockedTaskInfo(task=task)
+        assert info.task.id == 1
+        assert info.blockers == []
+
+    def test_blocked_task_info_with_blockers(self):
+        """Test BlockedTaskInfo with blocker tasks."""
+        blocked = TaskModel(id=2, description="Blocked task")
+        blocker1 = TaskModel(id=1, description="Blocker 1")
+        blocker2 = TaskModel(id=3, description="Blocker 2")
+        info = BlockedTaskInfo(task=blocked, blockers=[blocker1, blocker2])
+        assert info.task.id == 2
+        assert len(info.blockers) == 2
+        assert info.blockers[0].description == "Blocker 1"
+
+
+class TestBottleneckInfo:
+    """Tests for the BottleneckInfo model."""
+
+    def test_bottleneck_info(self):
+        """Test BottleneckInfo model."""
+        task = TaskModel(id=1, description="Bottleneck task")
+        info = BottleneckInfo(task=task, blocks_count=5)
+        assert info.task.id == 1
+        assert info.blocks_count == 5
+
+
+class TestComputedInsights:
+    """Tests for the ComputedInsights model."""
+
+    def test_computed_insights(self):
+        """Test ComputedInsights with all fields."""
+        insights = ComputedInsights(
+            age="3 days ago",
+            last_activity="Yesterday",
+            dependency_status="Ready",
+            related_pending=5,
+            annotations_count=2,
+        )
+        assert insights.age == "3 days ago"
+        assert insights.last_activity == "Yesterday"
+        assert insights.dependency_status == "Ready"
+        assert insights.related_pending == 5
+        assert insights.annotations_count == 2
+
+
+# ============================================================================
+# Parser Helper Tests
+# ============================================================================
+
+
+class TestParseTask:
+    """Tests for the _parse_task helper function."""
+
+    def test_parse_task_basic(self):
+        """Test parsing a basic task dict."""
+        data = {
+            "id": 1,
+            "description": "Test task",
+            "status": "pending",
+            "urgency": 5.0,
+        }
+        task = _parse_task(data)
+        assert isinstance(task, TaskModel)
+        assert task.id == 1
+        assert task.description == "Test task"
+
+    def test_parse_task_with_annotations(self):
+        """Test parsing a task with annotations."""
+        data = {
+            "id": 1,
+            "description": "Task with notes",
+            "annotations": [
+                {"entry": "20250130T100000Z", "description": "Note 1"},
+            ],
+        }
+        task = _parse_task(data)
+        assert len(task.annotations) == 1
+        assert isinstance(task.annotations[0], TaskAnnotation)
+
+    def test_parse_task_preserves_extra_fields(self):
+        """Test that extra Taskwarrior fields are preserved."""
+        data = {
+            "id": 1,
+            "description": "Test",
+            "recur": "weekly",
+            "imask": 1,
+        }
+        task = _parse_task(data)
+        assert task.model_extra.get("recur") == "weekly"
+
+
+class TestParseTasks:
+    """Tests for the _parse_tasks helper function."""
+
+    def test_parse_tasks_empty(self):
+        """Test parsing empty list."""
+        tasks = _parse_tasks([])
+        assert tasks == []
+
+    def test_parse_tasks_multiple(self):
+        """Test parsing multiple tasks."""
+        data = [
+            {"id": 1, "description": "Task 1", "urgency": 5.0},
+            {"id": 2, "description": "Task 2", "urgency": 3.0},
+            {"id": 3, "description": "Task 3", "urgency": 8.0},
+        ]
+        tasks = _parse_tasks(data)
+        assert len(tasks) == 3
+        assert all(isinstance(t, TaskModel) for t in tasks)
+        assert tasks[0].id == 1
+        assert tasks[2].urgency == 8.0
+
+
+# ============================================================================
+# Tests verifying TaskModel compatibility with existing functions
+# ============================================================================
+
+
+class TestTaskModelIntegration:
+    """Tests verifying TaskModel works with existing format functions."""
+
+    def test_format_task_markdown_with_task_model(self, sample_task_model):
+        """Test that TaskModel works with format_task_markdown."""
+        result = format_task_markdown(sample_task_model)
+        assert "[1]" in result
+        assert "Test task" in result
+        assert "test-project" in result
+        assert "High" in result
+
+    def test_parse_and_format_round_trip(self, sample_task):
+        """Test parsing a dict to TaskModel and formatting."""
+        task_model = _parse_task(sample_task)
+        result = format_task_markdown(task_model)
+        assert "[1]" in result
+        assert "Test task" in result
+
+    def test_sample_task_models_fixture(self, sample_task_models):
+        """Test that sample_task_models fixture works correctly."""
+        assert len(sample_task_models) == 3
+        assert all(isinstance(t, TaskModel) for t in sample_task_models)
+        assert sample_task_models[0].description == "Task one"
+        assert sample_task_models[1].project == "personal"
+        assert sample_task_models[2].tags == ["review"]
