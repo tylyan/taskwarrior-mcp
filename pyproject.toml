@@ -2,15 +2,71 @@
 name = "taskwarrior-mcp"
 version = "0.1.0"
 description = "MCP server for Taskwarrior CLI task management"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
+keywords = ["mcp", "taskwarrior", "task-management", "ai", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "mcp>=1.0.0",
     "pydantic>=2.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.23.0",
+    "black>=24.0.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+]
+
 [project.scripts]
 taskwarrior-mcp = "taskwarrior_mcp:mcp.run"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/taskwarrior-mcp"
+Repository = "https://github.com/yourusername/taskwarrior-mcp"
+Issues = "https://github.com/yourusername/taskwarrior-mcp/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["taskwarrior_mcp"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
