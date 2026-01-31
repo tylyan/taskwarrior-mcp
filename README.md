@@ -9,6 +9,7 @@ An MCP (Model Context Protocol) server that enables AI assistants to interact wi
 - **Annotations**: Add notes and context to tasks
 - **Filtering**: Use Taskwarrior's powerful filter expressions
 - **Multiple Output Formats**: Get responses in Markdown or JSON
+- **Agent Intelligence**: Smart suggestions, dependency analysis, triage tools
 
 ## Prerequisites
 
@@ -95,6 +96,8 @@ Add to your `~/.claude/settings.json`:
 
 ## Available Tools
 
+### Core Task Management
+
 | Tool | Description |
 |------|-------------|
 | `taskwarrior_list` | List tasks with optional filtering |
@@ -112,15 +115,34 @@ Add to your `~/.claude/settings.json`:
 | `taskwarrior_undo` | Undo the last operation |
 | `taskwarrior_summary` | Get task statistics |
 
+### Agent Intelligence Tools
+
+| Tool | Description |
+|------|-------------|
+| `taskwarrior_suggest` | Get smart task recommendations with scoring and reasoning |
+| `taskwarrior_ready` | List tasks that are ready to work on (no pending dependencies) |
+| `taskwarrior_blocked` | List tasks that are blocked by dependencies |
+| `taskwarrior_dependencies` | Analyze dependency graphs and find bottlenecks |
+| `taskwarrior_triage` | Find forgotten/stale tasks that need attention |
+| `taskwarrior_context` | Get rich task context with computed insights |
+
 ## Usage Examples
 
 Once configured, you can interact with Taskwarrior through your AI assistant:
 
+### Basic Task Management
 - "What tasks do I have?"
 - "Add a task to review the quarterly report with high priority"
 - "Show me all tasks in the work project"
 - "Complete task 5"
 - "What's due this week?"
+
+### Agent Intelligence
+- "What should I work on next?" - Uses `taskwarrior_suggest` for smart recommendations
+- "What tasks are ready to start?" - Uses `taskwarrior_ready` for unblocked tasks
+- "What's blocking my progress?" - Uses `taskwarrior_blocked` and `taskwarrior_dependencies`
+- "Any tasks I've forgotten about?" - Uses `taskwarrior_triage` for stale/orphaned tasks
+- "Give me context on task 5" - Uses `taskwarrior_context` for rich task details
 
 ## Development
 
