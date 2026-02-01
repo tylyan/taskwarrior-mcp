@@ -24,7 +24,12 @@ from taskwarrior_mcp.models.inputs import (
 )
 from taskwarrior_mcp.server import mcp
 from taskwarrior_mcp.utils.cli import _get_tasks_json, _run_task_command
-from taskwarrior_mcp.utils.formatters import _format_task_markdown, _format_tasks_markdown
+from taskwarrior_mcp.utils.formatters import (
+    _format_task_concise,
+    _format_task_markdown,
+    _format_tasks_concise,
+    _format_tasks_markdown,
+)
 from taskwarrior_mcp.utils.parsers import _parse_task, _parse_tasks
 
 
@@ -97,6 +102,9 @@ async def taskwarrior_list(params: ListTasksInput) -> str:
         title = f"Tasks matching '{params.filter}'"
     if params.status != TaskStatus.PENDING:
         title += f" ({params.status.value})"
+
+    if params.response_format == ResponseFormat.CONCISE:
+        return _format_tasks_concise(tasks, params.filter)
 
     return _format_tasks_markdown(tasks, title)
 
@@ -366,6 +374,9 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
         if params.response_format == ResponseFormat.JSON:
             return json.dumps(task.model_dump(), indent=2)
 
+        if params.response_format == ResponseFormat.CONCISE:
+            return _format_task_concise(task)
+
         return _format_task_markdown(task)
 
     except json.JSONDecodeError as e:
@@ -430,6 +441,9 @@ async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
 
         if params.response_format == ResponseFormat.JSON:
             return json.dumps([t.model_dump() for t in tasks], indent=2)
+
+        if params.response_format == ResponseFormat.CONCISE:
+            return _format_tasks_concise(tasks)
 
         # Format as markdown
         lines = [f"# Task Details ({len(tasks)} tasks found)\n"]

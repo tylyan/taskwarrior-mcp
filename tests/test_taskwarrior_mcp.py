@@ -51,7 +51,13 @@ from taskwarrior_mcp import (
     taskwarrior_undo,
 )
 from taskwarrior_mcp import (
+    _format_task_concise as format_task_concise,
+)
+from taskwarrior_mcp import (
     _format_task_markdown as format_task_markdown,
+)
+from taskwarrior_mcp import (
+    _format_tasks_concise as format_tasks_concise,
 )
 from taskwarrior_mcp import (
     _format_tasks_markdown as format_tasks_markdown,
@@ -310,6 +316,7 @@ class TestEnums:
 
     def test_response_format_values(self):
         """Test ResponseFormat enum values."""
+        assert ResponseFormat.CONCISE.value == "concise"
         assert ResponseFormat.MARKDOWN.value == "markdown"
         assert ResponseFormat.JSON.value == "json"
 
@@ -557,6 +564,40 @@ class TestFormatTasksMarkdown:
         assert "Work Tasks" in result
 
 
+class TestFormatTaskConcise:
+    """Tests for the concise task formatter."""
+
+    def test_format_task_concise_basic(self, sample_task_models):
+        """Test concise formatting of a basic task."""
+        task = sample_task_models[0]
+        result = format_task_concise(task)
+        assert "#1:" in result
+        assert "Task one" in result
+
+    def test_format_task_concise_with_metadata(self, sample_task_models):
+        """Test concise formatting includes priority, due, project."""
+        task = sample_task_models[0]  # Has priority H
+        result = format_task_concise(task)
+        assert "H" in result
+
+    def test_format_tasks_concise_empty(self):
+        """Test concise formatting of empty list."""
+        result = format_tasks_concise([])
+        assert "0 tasks" in result
+
+    def test_format_tasks_concise_multiple(self, sample_task_models):
+        """Test concise formatting of multiple tasks."""
+        result = format_tasks_concise(sample_task_models)
+        assert "3 task(s)" in result
+        assert "#1:" in result
+        assert "#2:" in result
+
+    def test_format_tasks_concise_with_title(self, sample_task_models):
+        """Test concise formatting with title."""
+        result = format_tasks_concise(sample_task_models, "project:work")
+        assert "project:work" in result
+
+
 # ============================================================================
 # Tool Function Tests
 # ============================================================================
@@ -586,6 +627,20 @@ class TestTaskwarriorList:
             assert data["total"] == 3
             assert data["count"] == 3
             assert len(data["tasks"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_list_tasks_concise(self, sample_tasks):
+        """Test listing tasks in concise format."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = ListTasksInput(response_format=ResponseFormat.CONCISE)
+            result = await taskwarrior_list(params)
+            assert "3 task(s)" in result
+            assert "#1:" in result
+            # Concise format should be shorter than markdown
+            markdown_params = ListTasksInput(response_format=ResponseFormat.MARKDOWN)
+            markdown_result = await taskwarrior_list(markdown_params)
+            assert len(result) < len(markdown_result)
 
     @pytest.mark.asyncio
     async def test_list_tasks_with_limit(self, sample_tasks):

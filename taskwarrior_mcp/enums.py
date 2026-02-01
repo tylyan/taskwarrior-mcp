@@ -6,8 +6,9 @@ from enum import Enum
 class ResponseFormat(str, Enum):
     """Output format for tool responses."""
 
-    MARKDOWN = "markdown"
-    JSON = "json"
+    CONCISE = "concise"  # Minimal output for chaining (~50% smaller than markdown)
+    MARKDOWN = "markdown"  # Human-readable (default)
+    JSON = "json"  # Machine-readable with all fields
 
 
 class TaskStatus(str, Enum):

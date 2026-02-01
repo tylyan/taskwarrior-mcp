@@ -23,6 +23,7 @@ from taskwarrior_mcp.models.intelligence import (
 from taskwarrior_mcp.models.task import TaskModel
 from taskwarrior_mcp.server import mcp
 from taskwarrior_mcp.utils.cli import _get_tasks_json, _run_task_command
+from taskwarrior_mcp.utils.formatters import _format_task_concise, _format_tasks_concise
 from taskwarrior_mcp.utils.parsers import _parse_task, _parse_tasks
 
 # ============================================================================
@@ -262,6 +263,15 @@ async def taskwarrior_suggest(params: SuggestInput) -> str:
             indent=2,
         )
 
+    if params.response_format == ResponseFormat.CONCISE:
+        if not scored_tasks:
+            return "0 suggestions"
+        lines = [f"{len(scored_tasks)} suggestion(s)"]
+        for s in scored_tasks:
+            reason_short = s.reasons[0] if s.reasons else ""
+            lines.append(f"{_format_task_concise(s.task)} [{reason_short}]")
+        return "\n".join(lines)
+
     # Markdown format
     if not scored_tasks:
         return "# Suggestions\n\nNo tasks match your criteria."
@@ -379,6 +389,9 @@ async def taskwarrior_ready(params: ReadyInput) -> str:
             indent=2,
         )
 
+    if params.response_format == ResponseFormat.CONCISE:
+        return _format_tasks_concise(ready_tasks, "ready")
+
     # Markdown format
     if not ready_tasks:
         return "# Ready to Work\n\nNo unblocked tasks found."
@@ -473,6 +486,9 @@ async def taskwarrior_blocked(params: BlockedInput) -> str:
             },
             indent=2,
         )
+
+    if params.response_format == ResponseFormat.CONCISE:
+        return _format_tasks_concise(blocked_tasks, "blocked")
 
     # Markdown format
     if not blocked_tasks:

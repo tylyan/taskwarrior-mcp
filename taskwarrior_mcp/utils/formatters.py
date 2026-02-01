@@ -3,6 +3,56 @@
 from taskwarrior_mcp.models.task import TaskModel
 
 
+def _format_task_concise(task: TaskModel) -> str:
+    """
+    Format a single task in concise format for token efficiency.
+
+    Output: "#5: Description (H, due:2024-12-31, project:work)"
+    """
+    task_id = task.id if task.id else "?"
+    desc = task.description[:50] if task.description else "No description"
+
+    # Build compact metadata
+    meta = []
+    if task.priority:
+        meta.append(task.priority)
+    if task.due:
+        meta.append(f"due:{task.due[:10]}")
+    if task.project:
+        meta.append(f"proj:{task.project}")
+
+    if meta:
+        return f"#{task_id}: {desc} ({', '.join(meta)})"
+    return f"#{task_id}: {desc}"
+
+
+def _format_tasks_concise(tasks: list[TaskModel], title: str | None = None) -> str:
+    """
+    Format a list of tasks in concise format for token efficiency.
+
+    Output:
+    5 tasks | project:work
+    #1: Task one (H, due:today)
+    #2: Task two (M)
+    """
+    if not tasks:
+        return "0 tasks"
+
+    lines = []
+
+    # Header with count
+    header = f"{len(tasks)} task(s)"
+    if title:
+        header = f"{len(tasks)} task(s) | {title}"
+    lines.append(header)
+
+    # Task lines
+    for task in tasks:
+        lines.append(_format_task_concise(task))
+
+    return "\n".join(lines)
+
+
 def _format_task_markdown(task: TaskModel) -> str:
     """Format a single task as markdown."""
     lines = []

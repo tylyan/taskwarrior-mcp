@@ -69,7 +69,9 @@ from taskwarrior_mcp.tools import (
 
 # Re-export utilities (including private functions used by tests)
 from taskwarrior_mcp.utils import (
+    _format_task_concise,
     _format_task_markdown,
+    _format_tasks_concise,
     _format_tasks_markdown,
     _get_tasks_json,
     _parse_task,
@@ -117,7 +119,9 @@ __all__ = [
     "_get_tasks_json",
     "_parse_task",
     "_parse_tasks",
+    "_format_task_concise",
     "_format_task_markdown",
+    "_format_tasks_concise",
     "_format_tasks_markdown",
     # Core tools
     "taskwarrior_list",
