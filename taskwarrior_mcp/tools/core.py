@@ -17,6 +17,7 @@ from taskwarrior_mcp.models.inputs import (
     ListTagsInput,
     ListTasksInput,
     ModifyTaskInput,
+    OverviewInput,
     ProjectSummaryInput,
     StartTaskInput,
     StopTaskInput,
@@ -995,5 +996,99 @@ async def taskwarrior_summary() -> str:
     sorted_projects = sorted(by_project.items(), key=lambda x: x[1], reverse=True)[:5]
     for project, count in sorted_projects:
         lines.append(f"- {project}: {count}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool(
+    name="taskwarrior_overview",
+    annotations=ToolAnnotations(
+        title="Task Overview",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+async def taskwarrior_overview(params: OverviewInput) -> str:
+    """
+    Get a comprehensive overview of tasks, projects, and tags in one call.
+
+    USE THIS WHEN:
+    - Starting a session and need to understand the task landscape
+    - Getting summary stats, projects, AND tags efficiently
+    - Answering "give me an overview of my tasks"
+
+    DO NOT USE WHEN:
+    - You only need task list → use taskwarrior_list
+    - You need detailed project analytics → use taskwarrior_project_summary
+    - You need task suggestions → use taskwarrior_suggest
+
+    Args:
+        params: OverviewInput with include_projects, include_tags, and response_format
+
+    Returns:
+        Consolidated overview with summary stats, projects, and tags
+
+    Examples:
+        - Full overview: params with defaults
+        - Summary only: params with include_projects=False, include_tags=False
+        - JSON format: params with response_format="json"
+    """
+    success, result = _get_tasks_json(status=TaskStatus.PENDING)
+
+    if not success:
+        return str(result)
+
+    raw_tasks = result if isinstance(result, list) else []
+    tasks = _parse_tasks(raw_tasks)
+
+    # Compute all aggregations in a single pass
+    total = len(tasks)
+    by_priority: dict[str, int] = {"H": 0, "M": 0, "L": 0, "": 0}
+    by_project: dict[str, int] = {}
+    tag_counts: dict[str, int] = {}
+    active = 0
+
+    for task in tasks:
+        by_priority[task.priority or ""] += 1
+        project = task.project or "(none)"
+        by_project[project] = by_project.get(project, 0) + 1
+        for tag in task.tags:
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        if task.start:
+            active += 1
+
+    if params.response_format == ResponseFormat.JSON:
+        data: dict[str, object] = {
+            "summary": {
+                "total": total,
+                "active": active,
+                "by_priority": by_priority,
+            },
+        }
+        if params.include_projects:
+            data["projects"] = [{"name": n, "count": c} for n, c in sorted(by_project.items())]
+        if params.include_tags:
+            data["tags"] = [{"name": n, "count": c} for n, c in sorted(tag_counts.items())]
+        return json.dumps(data, indent=2)
+
+    # Markdown format
+    lines = [
+        "# Task Overview",
+        "",
+        f"**Total Pending**: {total} | **Active**: {active}",
+        f"**Priority**: H:{by_priority['H']} M:{by_priority['M']} L:{by_priority['L']}",
+    ]
+
+    if params.include_projects and by_project:
+        lines.extend(["", "## Projects"])
+        for name, count in sorted(by_project.items(), key=lambda x: -x[1]):
+            lines.append(f"- {name}: {count}")
+
+    if params.include_tags and tag_counts:
+        lines.extend(["", "## Tags"])
+        for name, count in sorted(tag_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"- +{name}: {count}")
 
     return "\n".join(lines)

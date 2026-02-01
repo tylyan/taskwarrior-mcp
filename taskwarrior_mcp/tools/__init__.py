@@ -10,6 +10,7 @@ from taskwarrior_mcp.tools.core import (
     taskwarrior_get,
     taskwarrior_list,
     taskwarrior_modify,
+    taskwarrior_overview,
     taskwarrior_project_summary,
     taskwarrior_projects,
     taskwarrior_start,
@@ -44,6 +45,7 @@ __all__ = [
     "taskwarrior_tags",
     "taskwarrior_undo",
     "taskwarrior_summary",
+    "taskwarrior_overview",
     # Intelligence tools
     "taskwarrior_suggest",
     "taskwarrior_ready",

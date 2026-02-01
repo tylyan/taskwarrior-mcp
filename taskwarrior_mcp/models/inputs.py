@@ -168,6 +168,25 @@ class ListTagsInput(BaseModel):
     )
 
 
+class OverviewInput(BaseModel):
+    """Input model for getting a consolidated task overview."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    include_projects: bool = Field(
+        default=True,
+        description="Include project breakdown",
+    )
+    include_tags: bool = Field(
+        default=True,
+        description="Include tag breakdown",
+    )
+    response_format: ResponseFormat = Field(
+        default=ResponseFormat.MARKDOWN,
+        description="Output format: 'markdown' or 'json'",
+    )
+
+
 class StartTaskInput(BaseModel):
     """Input model for starting a task."""
 

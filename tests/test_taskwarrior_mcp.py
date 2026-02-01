@@ -1271,6 +1271,106 @@ class TestTaskwarriorSummary:
             assert "No priority: 1" in result
 
 
+class TestOverviewInput:
+    """Tests for the OverviewInput model."""
+
+    def test_overview_input_defaults(self):
+        """Test OverviewInput has correct defaults."""
+        from taskwarrior_mcp import OverviewInput
+
+        params = OverviewInput()
+        assert params.include_projects is True
+        assert params.include_tags is True
+        assert params.response_format == ResponseFormat.MARKDOWN
+
+    def test_overview_input_custom_values(self):
+        """Test OverviewInput accepts custom values."""
+        from taskwarrior_mcp import OverviewInput
+
+        params = OverviewInput(
+            include_projects=False,
+            include_tags=False,
+            response_format=ResponseFormat.JSON,
+        )
+        assert params.include_projects is False
+        assert params.include_tags is False
+        assert params.response_format == ResponseFormat.JSON
+
+
+class TestTaskwarriorOverview:
+    """Tests for the taskwarrior_overview tool."""
+
+    @pytest.mark.asyncio
+    async def test_overview_markdown_default(self, sample_tasks):
+        """Test overview returns markdown with all sections."""
+        from taskwarrior_mcp import OverviewInput, taskwarrior_overview
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = OverviewInput()
+            result = await taskwarrior_overview(params)
+            assert "Task Overview" in result
+            assert "Total Pending" in result
+            assert "Priority" in result
+            assert "## Projects" in result
+            assert "## Tags" in result
+
+    @pytest.mark.asyncio
+    async def test_overview_without_projects(self, sample_tasks):
+        """Test overview excludes projects when disabled."""
+        from taskwarrior_mcp import OverviewInput, taskwarrior_overview
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = OverviewInput(include_projects=False)
+            result = await taskwarrior_overview(params)
+            assert "Task Overview" in result
+            assert "## Projects" not in result
+            assert "## Tags" in result
+
+    @pytest.mark.asyncio
+    async def test_overview_without_tags(self, sample_tasks):
+        """Test overview excludes tags when disabled."""
+        from taskwarrior_mcp import OverviewInput, taskwarrior_overview
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = OverviewInput(include_tags=False)
+            result = await taskwarrior_overview(params)
+            assert "Task Overview" in result
+            assert "## Projects" in result
+            assert "## Tags" not in result
+
+    @pytest.mark.asyncio
+    async def test_overview_json_format(self, sample_tasks):
+        """Test overview returns JSON with all data."""
+        from taskwarrior_mcp import OverviewInput, taskwarrior_overview
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = OverviewInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_overview(params)
+            data = json.loads(result)
+            assert "summary" in data
+            assert "total" in data["summary"]
+            assert "active" in data["summary"]
+            assert "by_priority" in data["summary"]
+            assert "projects" in data
+            assert "tags" in data
+
+    @pytest.mark.asyncio
+    async def test_overview_empty_tasks(self):
+        """Test overview handles empty task list."""
+        from taskwarrior_mcp import OverviewInput, taskwarrior_overview
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+            params = OverviewInput()
+            result = await taskwarrior_overview(params)
+            assert "Task Overview" in result
+            assert "Total Pending**: 0" in result
+
+
 class TestTaskwarriorProjectSummary:
     """Tests for the taskwarrior_project_summary tool."""
 
