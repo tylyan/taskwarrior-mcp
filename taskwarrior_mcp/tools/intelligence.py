@@ -191,16 +191,30 @@ def _is_task_stale(task: TaskModel, stale_days: int) -> bool:
 )
 async def taskwarrior_suggest(params: SuggestInput) -> str:
     """
-    Get smart task suggestions based on urgency, priority, and dependencies.
+    Get AI-powered task recommendations for what to work on next.
 
-    Use this tool to help decide what to work on next. Returns a prioritized
-    list of tasks with reasoning for why each is suggested.
+    USE THIS WHEN:
+    - User asks "what should I work on?" or "what's important?"
+    - Planning a work session and need prioritized suggestions
+    - Need reasoning for why tasks are important (overdue, blocks others, etc.)
+
+    DO NOT USE WHEN:
+    - You just want a simple task list → use taskwarrior_list instead
+    - You specifically want blocked tasks → use taskwarrior_blocked
+    - You want unblocked/ready tasks only → use taskwarrior_ready
+    - You want details on a specific task → use taskwarrior_get or taskwarrior_context
+
+    CONTEXT OPTIONS:
+    - None (default): Balanced suggestions considering all factors
+    - "quick_wins": Tasks that can be completed quickly (low urgency, tagged +quick)
+    - "blockers": Tasks that unblock other work (completing these helps most)
+    - "deadlines": Tasks with imminent or past due dates
 
     Args:
         params: SuggestInput with limit, context, project filter, and format
 
     Returns:
-        Prioritized list of task suggestions with reasons
+        Prioritized list of task suggestions with reasons (e.g., "Blocks 3 tasks", "Overdue")
 
     Examples:
         - Get top 5 suggestions: params with default values
@@ -306,10 +320,17 @@ async def taskwarrior_suggest(params: SuggestInput) -> str:
 )
 async def taskwarrior_ready(params: ReadyInput) -> str:
     """
-    List tasks that are ready to work on (no pending dependencies).
+    List tasks that can be started immediately (no pending dependencies).
 
-    Use this tool to see which tasks can be started immediately without
-    waiting for other tasks to complete first.
+    USE THIS WHEN:
+    - You want to see what tasks are unblocked and actionable
+    - Looking for tasks that don't require other tasks to complete first
+    - Answering "what can I actually work on right now?"
+
+    DO NOT USE WHEN:
+    - You want prioritized suggestions with reasoning → use taskwarrior_suggest
+    - You want to see blocked tasks → use taskwarrior_blocked
+    - You want a general task list without dependency checking → use taskwarrior_list
 
     Args:
         params: ReadyInput with limit, project, priority, and format options
@@ -394,9 +415,17 @@ async def taskwarrior_ready(params: ReadyInput) -> str:
 )
 async def taskwarrior_blocked(params: BlockedInput) -> str:
     """
-    List tasks that are blocked by dependencies.
+    List tasks that are waiting on other tasks to complete.
 
-    Use this tool to see which tasks are waiting on other tasks to complete.
+    USE THIS WHEN:
+    - You want to see tasks that can't be started yet
+    - Understanding what's holding up progress
+    - Identifying dependency chains
+
+    DO NOT USE WHEN:
+    - You want tasks you CAN work on → use taskwarrior_ready instead
+    - You want full dependency graph analysis → use taskwarrior_dependencies
+    - You want prioritized suggestions → use taskwarrior_suggest
 
     Args:
         params: BlockedInput with limit, show_blockers option, and format
@@ -487,10 +516,26 @@ async def taskwarrior_blocked(params: BlockedInput) -> str:
 )
 async def taskwarrior_dependencies(params: DependenciesInput) -> str:
     """
-    Analyze task dependencies and find bottlenecks.
+    Analyze dependency relationships and identify bottlenecks.
 
-    Use this tool to understand dependency relationships between tasks,
-    find critical bottlenecks, and see what's blocking progress.
+    USE THIS WHEN:
+    - Understanding the dependency graph (what blocks what)
+    - Finding critical bottleneck tasks that block many others
+    - Analyzing a specific task's dependencies in both directions
+
+    DO NOT USE WHEN:
+    - You just want a list of blocked tasks → use taskwarrior_blocked
+    - You want tasks ready to start → use taskwarrior_ready
+    - You want task details without dependency analysis → use taskwarrior_get
+
+    MODES:
+    - Overview (task_id=None): Shows bottlenecks and blocked/ready counts
+    - Specific task: Shows what the task blocks and what blocks it
+
+    DIRECTION OPTIONS (for specific task):
+    - "both": Show tasks it blocks AND tasks blocking it
+    - "blocks": Only show tasks waiting on this one
+    - "blocked_by": Only show tasks this one depends on
 
     Args:
         params: DependenciesInput with optional task_id, direction, depth
@@ -535,10 +580,17 @@ async def taskwarrior_dependencies(params: DependenciesInput) -> str:
         try:
             task_list = json.loads(output) if output else []
             if not task_list:
-                return f"Error: Task {params.task_id} not found."
+                return (
+                    f"Error: Task '{params.task_id}' not found.\n"
+                    f"Tip: Use taskwarrior_list to find valid task IDs, "
+                    f"or check if the task was completed/deleted."
+                )
             task = _parse_task(task_list[0])
         except json.JSONDecodeError:
-            return f"Error: Could not parse task {params.task_id}"
+            return (
+                f"Error: Could not parse task '{params.task_id}'.\n"
+                f"Tip: This may indicate a Taskwarrior configuration issue."
+            )
 
         task_uuid = task.uuid or ""
         task_id = task.id if task.id else params.task_id
@@ -678,10 +730,23 @@ async def taskwarrior_dependencies(params: DependenciesInput) -> str:
 )
 async def taskwarrior_triage(params: TriageInput) -> str:
     """
-    Surface tasks that need attention: stale, unorganized, or forgotten.
+    Find tasks that need attention: stale, unorganized, or forgotten.
 
-    Use this tool for weekly reviews to find tasks that have fallen through
-    the cracks or need better organization.
+    USE THIS WHEN:
+    - Doing a weekly review or task cleanup
+    - Finding tasks that fell through the cracks
+    - Identifying poorly organized tasks (no project, no tags, no due date)
+
+    DO NOT USE WHEN:
+    - You want suggestions on what to work on → use taskwarrior_suggest
+    - You want to see all tasks → use taskwarrior_list
+    - You want blocked/ready status → use taskwarrior_blocked or taskwarrior_ready
+
+    CATEGORIES IDENTIFIED:
+    - Stale: Not modified in X days (default 14)
+    - No project: Tasks without a project assignment
+    - Untagged: Tasks with no tags
+    - No due date: Tasks without a deadline
 
     Args:
         params: TriageInput with stale_days, filter options, and format
@@ -813,10 +878,23 @@ async def taskwarrior_triage(params: TriageInput) -> str:
 )
 async def taskwarrior_context(params: ContextInput) -> str:
     """
-    Get rich context for a task including computed insights.
+    Get comprehensive context for a task with insights and related tasks.
 
-    Use this tool to deeply understand a task with its age, dependencies,
-    related tasks, and activity history.
+    USE THIS WHEN:
+    - You need deep understanding of a task before working on it
+    - You want computed insights (age, dependency status, related tasks)
+    - Preparing to discuss or plan around a specific task
+
+    DO NOT USE WHEN:
+    - You just need basic task details → use taskwarrior_get instead
+    - You want multiple tasks → use taskwarrior_bulk_get or taskwarrior_list
+    - You want dependency graph analysis → use taskwarrior_dependencies
+
+    INCLUDES:
+    - All task attributes and annotations
+    - Computed age and last activity
+    - Dependency status (ready, blocked, blocks others)
+    - Related tasks from the same project
 
     Args:
         params: ContextInput with task_id and options for related/activity info
@@ -837,10 +915,17 @@ async def taskwarrior_context(params: ContextInput) -> str:
     try:
         task_list = json.loads(output) if output else []
         if not task_list:
-            return f"Error: Task {params.task_id} not found."
+            return (
+                f"Error: Task '{params.task_id}' not found.\n"
+                f"Tip: Use taskwarrior_list to find valid task IDs, "
+                f"or check if the task was completed/deleted."
+            )
         task = _parse_task(task_list[0])
     except json.JSONDecodeError as e:
-        return f"Error: Failed to parse task data - {str(e)}"
+        return (
+            f"Error: Failed to parse task data - {str(e)}\n"
+            f"Tip: This may indicate a Taskwarrior configuration issue."
+        )
 
     # Get all tasks for dependency and related analysis
     success, all_result = _get_tasks_json(status=TaskStatus.ALL)

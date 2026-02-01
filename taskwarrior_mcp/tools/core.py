@@ -40,10 +40,26 @@ from taskwarrior_mcp.utils.parsers import _parse_task, _parse_tasks
 )
 async def taskwarrior_list(params: ListTasksInput) -> str:
     """
-    List tasks from Taskwarrior with optional filtering.
+    Search and filter tasks using Taskwarrior query expressions.
 
-    Use this tool to view tasks, search for specific tasks, or get an overview
-    of pending work. Supports Taskwarrior filter expressions for powerful querying.
+    USE THIS WHEN:
+    - Searching for tasks matching criteria (project, tags, due date, etc.)
+    - Getting a filtered subset of tasks
+    - Exploring tasks you don't know the IDs of
+
+    DO NOT USE WHEN:
+    - You have a specific task ID → use taskwarrior_get instead
+    - You have multiple known task IDs → use taskwarrior_bulk_get instead
+    - You want prioritized suggestions → use taskwarrior_suggest instead
+    - You want to see blocked/ready tasks → use taskwarrior_blocked or taskwarrior_ready
+
+    FILTER SYNTAX (Taskwarrior expressions):
+    - Project: "project:work" or "project.is:work"
+    - Tags: "+urgent" (has tag) or "-completed" (excludes tag)
+    - Due: "due:today", "due:tomorrow", "due:eow" (end of week), "due.before:2024-12-31"
+    - Priority: "priority:H", "priority:M", "priority:L"
+    - Description: "description.contains:meeting"
+    - Combined: "project:work +urgent due.before:eow"
 
     Args:
         params: ListTasksInput containing filter, status, limit, and response_format
@@ -99,7 +115,13 @@ async def taskwarrior_add(params: AddTaskInput) -> str:
     """
     Create a new task in Taskwarrior.
 
-    Use this tool to add new tasks with optional project, priority, due date, and tags.
+    USE THIS WHEN:
+    - Adding a new task to track
+    - Creating tasks with metadata (project, priority, due date, tags)
+
+    DO NOT USE WHEN:
+    - Updating an existing task → use taskwarrior_modify instead
+    - Adding notes to a task → use taskwarrior_annotate instead
 
     Args:
         params: AddTaskInput containing description and optional attributes
@@ -187,9 +209,20 @@ async def taskwarrior_complete(params: CompleteTaskInput) -> str:
 )
 async def taskwarrior_modify(params: ModifyTaskInput) -> str:
     """
-    Modify an existing task's attributes.
+    Update an existing task's attributes.
 
-    Use this tool to update task description, project, priority, due date, or tags.
+    USE THIS WHEN:
+    - Changing task description, project, priority, due date, or tags
+    - Organizing tasks (moving between projects, updating priorities)
+    - Adding or removing tags
+
+    DO NOT USE WHEN:
+    - Creating a new task → use taskwarrior_add instead
+    - Adding notes/comments → use taskwarrior_annotate instead
+    - Marking task complete → use taskwarrior_complete instead
+    - Starting/stopping work → use taskwarrior_start or taskwarrior_stop
+
+    CLEARING VALUES: Use empty string to clear a field (e.g., due="" removes due date)
 
     Args:
         params: ModifyTaskInput containing task_id and attributes to modify
@@ -290,9 +323,19 @@ async def taskwarrior_delete(params: DeleteTaskInput) -> str:
 )
 async def taskwarrior_get(params: GetTaskInput) -> str:
     """
-    Get detailed information about a specific task.
+    Retrieve full details for a single task by ID or UUID.
 
-    Use this tool to view all attributes and annotations of a single task.
+    USE THIS WHEN:
+    - You have a specific task ID (e.g., from a previous list call)
+    - You need all task attributes including annotations
+    - You want to inspect a task before modifying it
+
+    DO NOT USE WHEN:
+    - You want multiple tasks → use taskwarrior_bulk_get for known IDs
+    - You want to search/filter tasks → use taskwarrior_list
+    - You want context with related tasks and insights → use taskwarrior_context
+
+    ACCEPTS: Task ID (numeric, e.g., "5") or UUID (e.g., "a1b2c3d4...")
 
     Args:
         params: GetTaskInput containing task_id and response_format
@@ -312,7 +355,11 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
     try:
         tasks = json.loads(output) if output else []
         if not tasks:
-            return f"Error: Task {params.task_id} not found."
+            return (
+                f"Error: Task '{params.task_id}' not found.\n"
+                f"Tip: Use taskwarrior_list to find valid task IDs, "
+                f"or check if the task was completed/deleted."
+            )
 
         task = _parse_task(tasks[0])
 
@@ -322,7 +369,10 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
         return _format_task_markdown(task)
 
     except json.JSONDecodeError as e:
-        return f"Error: Failed to parse task data - {str(e)}"
+        return (
+            f"Error: Failed to parse task data - {str(e)}\n"
+            f"Tip: This may indicate a Taskwarrior configuration issue."
+        )
 
 
 @mcp.tool(
@@ -337,11 +387,17 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
 )
 async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
     """
-    Get detailed information about multiple tasks at once.
+    Retrieve full details for multiple tasks by their IDs.
 
-    Use this tool to view all attributes and annotations of multiple tasks
-    in a single request, which is more efficient than calling taskwarrior_get
-    multiple times.
+    USE THIS WHEN:
+    - You have a list of specific task IDs to retrieve
+    - You need details for multiple tasks from a previous search
+    - More efficient than calling taskwarrior_get multiple times
+
+    DO NOT USE WHEN:
+    - You only need one task → use taskwarrior_get instead
+    - You want to search/filter tasks → use taskwarrior_list instead
+    - You don't know the task IDs → use taskwarrior_list to find them first
 
     Args:
         params: BulkGetTasksInput containing task_ids and response_format
@@ -364,7 +420,11 @@ async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
         raw_tasks = json.loads(output) if output else []
 
         if not raw_tasks:
-            return f"Error: No tasks found for IDs: {', '.join(params.task_ids)}"
+            return (
+                f"Error: No tasks found for IDs: {', '.join(params.task_ids)}\n"
+                f"Tip: Use taskwarrior_list to find valid task IDs. "
+                f"These tasks may have been completed or deleted."
+            )
 
         tasks = _parse_tasks(raw_tasks)
 
@@ -387,7 +447,10 @@ async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
         return "\n".join(lines)
 
     except json.JSONDecodeError as e:
-        return f"Error: Failed to parse task data - {str(e)}"
+        return (
+            f"Error: Failed to parse task data - {str(e)}\n"
+            f"Tip: This may indicate a Taskwarrior configuration issue."
+        )
 
 
 @mcp.tool(
@@ -502,9 +565,15 @@ async def taskwarrior_stop(params: StopTaskInput) -> str:
 )
 async def taskwarrior_projects(params: ListProjectsInput) -> str:
     """
-    List all projects in Taskwarrior.
+    List all projects and their task counts.
 
-    Use this tool to see all projects and the number of tasks in each.
+    USE THIS WHEN:
+    - Getting a quick overview of project names
+    - Seeing how tasks are distributed across projects
+
+    DO NOT USE WHEN:
+    - You want detailed project analytics → use taskwarrior_project_summary instead
+    - You want to see tasks in a project → use taskwarrior_list with filter="project:name"
 
     Args:
         params: ListProjectsInput with response_format
@@ -556,10 +625,17 @@ async def taskwarrior_projects(params: ListProjectsInput) -> str:
 )
 async def taskwarrior_project_summary(params: ProjectSummaryInput) -> str:
     """
-    Get a detailed summary of projects with task statistics.
+    Get detailed analytics for projects including priority breakdown and due dates.
 
-    Use this tool to get comprehensive project-level insights including task counts,
-    priority breakdown, overdue tasks, and active work. More detailed than taskwarrior_projects.
+    USE THIS WHEN:
+    - You want comprehensive project insights (overdue, due today, priority breakdown)
+    - Analyzing workload distribution across projects
+    - Getting a detailed status report for a specific project
+
+    DO NOT USE WHEN:
+    - You just need a list of project names → use taskwarrior_projects instead
+    - You want task-level details → use taskwarrior_list with project filter
+    - You want overall task summary → use taskwarrior_summary
 
     Args:
         params: ProjectSummaryInput with optional project filter and include_completed flag
@@ -748,9 +824,14 @@ async def taskwarrior_project_summary(params: ProjectSummaryInput) -> str:
 )
 async def taskwarrior_tags(params: ListTagsInput) -> str:
     """
-    List all tags used in Taskwarrior.
+    List all tags and their usage counts.
 
-    Use this tool to see all tags and how many tasks use each tag.
+    USE THIS WHEN:
+    - Discovering what tags exist in the system
+    - Seeing tag usage distribution
+
+    DO NOT USE WHEN:
+    - You want tasks with a specific tag → use taskwarrior_list with filter="+tagname"
 
     Args:
         params: ListTagsInput with response_format
@@ -834,10 +915,17 @@ async def taskwarrior_undo(params: UndoInput) -> str:
 )
 async def taskwarrior_summary() -> str:
     """
-    Get a summary of task statistics.
+    Get a high-level overview of task statistics.
 
-    Use this tool to get an overview of pending tasks, including counts by
-    project, priority, and urgency.
+    USE THIS WHEN:
+    - You want a quick snapshot of all pending tasks
+    - Getting counts by priority and top projects
+    - Answering "how many tasks do I have?"
+
+    DO NOT USE WHEN:
+    - You want detailed per-project analytics → use taskwarrior_project_summary
+    - You want to see actual tasks → use taskwarrior_list
+    - You want suggestions on what to work on → use taskwarrior_suggest
 
     Returns:
         Summary statistics of tasks
