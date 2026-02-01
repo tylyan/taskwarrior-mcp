@@ -1,2 +1,6 @@
 [tools]
 python = "latest"
+
+[tasks.test]
+description = "Run unit tests"
+run = "uv run pytest"

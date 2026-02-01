@@ -8,6 +8,7 @@ def _format_task_concise(task: TaskModel) -> str:
     Format a single task in concise format for token efficiency.
 
     Output: "#5: Description (H, due:2024-12-31, project:work)"
+    If blocked: "#5: Description (H, BLOCKED(2))"
     """
     task_id = task.id if task.id else "?"
     desc = task.description[:50] if task.description else "No description"
@@ -20,6 +21,8 @@ def _format_task_concise(task: TaskModel) -> str:
         meta.append(f"due:{task.due[:10]}")
     if task.project:
         meta.append(f"proj:{task.project}")
+    if task.blocked_by_pending > 0:
+        meta.append(f"BLOCKED({task.blocked_by_pending})")
 
     if meta:
         return f"#{task_id}: {desc} ({', '.join(meta)})"
@@ -90,6 +93,17 @@ def _format_task_markdown(task: TaskModel) -> str:
         for ann in task.annotations:
             entry = ann.entry[:10] if ann.entry else ""
             lines.append(f"  - [{entry}] {ann.description}")
+
+    # Resolved dependencies
+    if task.depends_on:
+        lines.append("")
+        if task.blocked_by_pending > 0:
+            lines.append(f"**Blocked by** ({task.blocked_by_pending} pending):")
+        else:
+            lines.append("**Dependencies** (all resolved):")
+        for dep in task.depends_on:
+            status_indicator = "⏳" if dep.status == "pending" else "✓"
+            lines.append(f"  - {status_indicator} #{dep.id}: {dep.description}")
 
     return "\n".join(lines)
 

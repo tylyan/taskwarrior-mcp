@@ -28,12 +28,13 @@ from taskwarrior_mcp.models.intelligence import (
     ComputedInsights,
     ScoredTask,
 )
-from taskwarrior_mcp.models.task import TaskAnnotation, TaskModel
+from taskwarrior_mcp.models.task import ResolvedDependency, TaskAnnotation, TaskModel
 
 __all__ = [
     # Task models
     "TaskAnnotation",
     "TaskModel",
+    "ResolvedDependency",
     # Core input models
     "ListTasksInput",
     "AddTaskInput",

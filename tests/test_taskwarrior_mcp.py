@@ -597,6 +597,78 @@ class TestFormatTaskConcise:
         result = format_tasks_concise(sample_task_models, "project:work")
         assert "project:work" in result
 
+    def test_format_task_concise_blocked_indicator(self):
+        """Test concise formatting shows BLOCKED indicator when blocked."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(id=1, uuid="uuid-1", description="Blocker", status="pending")
+        task = TaskModel(
+            id=2,
+            description="Blocked task",
+            depends_on=[dep],
+            blocked_by_pending=1,
+        )
+        result = format_task_concise(task)
+        assert "BLOCKED(1)" in result
+
+    def test_format_task_concise_no_blocked_when_deps_complete(self):
+        """Test concise formatting hides BLOCKED when deps are complete."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(id=1, uuid="uuid-1", description="Done blocker", status="completed")
+        task = TaskModel(
+            id=2,
+            description="Was blocked task",
+            depends_on=[dep],
+            blocked_by_pending=0,
+        )
+        result = format_task_concise(task)
+        assert "BLOCKED" not in result
+
+
+class TestFormatTaskMarkdownDependencies:
+    """Tests for markdown formatter dependency display."""
+
+    def test_format_task_markdown_with_pending_deps(self):
+        """Test markdown formatting shows blocked by section."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep1 = ResolvedDependency(id=1, uuid="uuid-1", description="Blocker one", status="pending")
+        dep2 = ResolvedDependency(id=2, uuid="uuid-2", description="Blocker two", status="pending")
+        task = TaskModel(
+            id=3,
+            description="Blocked task",
+            depends_on=[dep1, dep2],
+            blocked_by_pending=2,
+        )
+        result = format_task_markdown(task)
+        assert "**Blocked by**" in result
+        assert "2 pending" in result
+        assert "#1: Blocker one" in result
+        assert "#2: Blocker two" in result
+
+    def test_format_task_markdown_with_completed_deps(self):
+        """Test markdown formatting shows dependencies resolved."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(id=1, uuid="uuid-1", description="Done blocker", status="completed")
+        task = TaskModel(
+            id=2,
+            description="Was blocked",
+            depends_on=[dep],
+            blocked_by_pending=0,
+        )
+        result = format_task_markdown(task)
+        assert "**Dependencies** (all resolved)" in result
+        assert "#1: Done blocker" in result
+
+    def test_format_task_markdown_no_deps_section_when_empty(self):
+        """Test markdown formatting hides deps section when none."""
+        task = TaskModel(id=1, description="No deps task")
+        result = format_task_markdown(task)
+        assert "Blocked by" not in result
+        assert "Dependencies" not in result
+
 
 # ============================================================================
 # Tool Function Tests
@@ -2131,6 +2203,171 @@ class TestTaskModel:
         assert data["id"] == 1
         assert data["description"] == "Test task"
         assert data["tags"] == ["urgent"]
+
+    def test_task_model_with_resolved_dependencies(self):
+        """Test TaskModel with resolved dependency fields."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep1 = ResolvedDependency(id=1, uuid="uuid-1", description="Blocking task 1", status="pending")
+        dep2 = ResolvedDependency(id=2, uuid="uuid-2", description="Blocking task 2", status="completed")
+
+        task = TaskModel(
+            id=3,
+            description="Blocked task",
+            depends="uuid-1,uuid-2",
+            depends_on=[dep1, dep2],
+            blocked_by_pending=1,
+        )
+        assert task.depends == "uuid-1,uuid-2"
+        assert len(task.depends_on) == 2
+        assert task.depends_on[0].description == "Blocking task 1"
+        assert task.depends_on[1].status == "completed"
+        assert task.blocked_by_pending == 1
+
+    def test_task_model_depends_on_defaults_empty(self):
+        """Test that depends_on defaults to empty list."""
+        task = TaskModel(id=1, description="Task without deps")
+        assert task.depends_on == []
+        assert task.blocked_by_pending == 0
+
+    def test_task_model_depends_on_serializes_to_json(self):
+        """Test that resolved deps serialize properly to JSON."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(id=1, uuid="uuid-1", description="Blocker", status="pending")
+        task = TaskModel(id=2, description="Task", depends_on=[dep], blocked_by_pending=1)
+
+        data = task.model_dump()
+        assert "depends_on" in data
+        assert len(data["depends_on"]) == 1
+        assert data["depends_on"][0]["uuid"] == "uuid-1"
+        assert data["blocked_by_pending"] == 1
+
+
+class TestResolvedDependency:
+    """Tests for the ResolvedDependency model."""
+
+    def test_resolved_dependency_minimal(self):
+        """Test ResolvedDependency with required fields only."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(uuid="uuid-123", description="A task")
+        assert dep.uuid == "uuid-123"
+        assert dep.description == "A task"
+        assert dep.id is None
+        assert dep.status == "pending"
+
+    def test_resolved_dependency_full(self):
+        """Test ResolvedDependency with all fields."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        dep = ResolvedDependency(id=5, uuid="uuid-456", description="Blocker task", status="completed")
+        assert dep.id == 5
+        assert dep.uuid == "uuid-456"
+        assert dep.description == "Blocker task"
+        assert dep.status == "completed"
+
+    def test_resolved_dependency_from_dict(self):
+        """Test creating ResolvedDependency from dict."""
+        from taskwarrior_mcp import ResolvedDependency
+
+        data = {"id": 1, "uuid": "abc-123", "description": "Task", "status": "pending"}
+        dep = ResolvedDependency.model_validate(data)
+        assert dep.id == 1
+        assert dep.uuid == "abc-123"
+
+
+class TestDependencyEnrichment:
+    """Tests for dependency enrichment functions."""
+
+    def test_enrich_task_dependencies_no_deps(self):
+        """Test enrichment with task that has no dependencies."""
+        from taskwarrior_mcp import _enrich_task_dependencies
+
+        task = TaskModel(id=1, uuid="task-1", description="Task without deps")
+        uuid_map = {}
+
+        enriched = _enrich_task_dependencies(task, uuid_map)
+        assert enriched.depends_on == []
+        assert enriched.blocked_by_pending == 0
+
+    def test_enrich_task_dependencies_with_pending_dep(self):
+        """Test enrichment resolves pending dependency."""
+        from taskwarrior_mcp import _enrich_task_dependencies
+
+        blocker = TaskModel(id=1, uuid="blocker-uuid", description="Blocker", status="pending")
+        task = TaskModel(id=2, uuid="task-uuid", description="Blocked", depends="blocker-uuid")
+        uuid_map = {"blocker-uuid": blocker}
+
+        enriched = _enrich_task_dependencies(task, uuid_map)
+        assert len(enriched.depends_on) == 1
+        assert enriched.depends_on[0].id == 1
+        assert enriched.depends_on[0].description == "Blocker"
+        assert enriched.depends_on[0].status == "pending"
+        assert enriched.blocked_by_pending == 1
+
+    def test_enrich_task_dependencies_with_completed_dep(self):
+        """Test enrichment with completed dependency (not blocking)."""
+        from taskwarrior_mcp import _enrich_task_dependencies
+
+        blocker = TaskModel(id=1, uuid="blocker-uuid", description="Done blocker", status="completed")
+        task = TaskModel(id=2, uuid="task-uuid", description="Was blocked", depends="blocker-uuid")
+        uuid_map = {"blocker-uuid": blocker}
+
+        enriched = _enrich_task_dependencies(task, uuid_map)
+        assert len(enriched.depends_on) == 1
+        assert enriched.depends_on[0].status == "completed"
+        assert enriched.blocked_by_pending == 0  # Completed deps don't block
+
+    def test_enrich_task_dependencies_multiple_deps(self):
+        """Test enrichment with multiple dependencies."""
+        from taskwarrior_mcp import _enrich_task_dependencies
+
+        blocker1 = TaskModel(id=1, uuid="uuid-1", description="Blocker 1", status="pending")
+        blocker2 = TaskModel(id=2, uuid="uuid-2", description="Blocker 2", status="completed")
+        blocker3 = TaskModel(id=3, uuid="uuid-3", description="Blocker 3", status="pending")
+        task = TaskModel(id=4, uuid="uuid-4", description="Blocked", depends="uuid-1,uuid-2,uuid-3")
+        uuid_map = {"uuid-1": blocker1, "uuid-2": blocker2, "uuid-3": blocker3}
+
+        enriched = _enrich_task_dependencies(task, uuid_map)
+        assert len(enriched.depends_on) == 3
+        assert enriched.blocked_by_pending == 2  # Only pending deps count
+
+    def test_enrich_task_dependencies_missing_uuid(self):
+        """Test enrichment handles missing UUID gracefully."""
+        from taskwarrior_mcp import _enrich_task_dependencies
+
+        task = TaskModel(id=1, uuid="task-uuid", description="Task", depends="missing-uuid")
+        uuid_map = {}
+
+        enriched = _enrich_task_dependencies(task, uuid_map)
+        assert len(enriched.depends_on) == 0  # Missing UUID is skipped
+        assert enriched.blocked_by_pending == 0
+
+    def test_enrich_tasks_dependencies_batch(self):
+        """Test batch enrichment of multiple tasks."""
+        from taskwarrior_mcp import _enrich_tasks_dependencies
+
+        task1 = TaskModel(id=1, uuid="uuid-1", description="Independent task")
+        task2 = TaskModel(id=2, uuid="uuid-2", description="Depends on task1", depends="uuid-1")
+        task3 = TaskModel(id=3, uuid="uuid-3", description="Depends on task2", depends="uuid-2")
+        tasks = [task1, task2, task3]
+
+        enriched = _enrich_tasks_dependencies(tasks)
+
+        # Task 1 has no deps
+        assert enriched[0].depends_on == []
+        assert enriched[0].blocked_by_pending == 0
+
+        # Task 2 depends on task 1
+        assert len(enriched[1].depends_on) == 1
+        assert enriched[1].depends_on[0].id == 1
+        assert enriched[1].blocked_by_pending == 1
+
+        # Task 3 depends on task 2
+        assert len(enriched[2].depends_on) == 1
+        assert enriched[2].depends_on[0].id == 2
+        assert enriched[2].blocked_by_pending == 1
 
 
 class TestScoredTask:

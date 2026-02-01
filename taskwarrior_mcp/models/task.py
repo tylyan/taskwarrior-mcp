@@ -12,6 +12,19 @@ class TaskAnnotation(BaseModel):
     description: str = ""
 
 
+class ResolvedDependency(BaseModel):
+    """Lightweight resolved dependency reference.
+
+    Contains just enough info about a dependency task for agents to understand
+    blocking relationships without needing additional tool calls.
+    """
+
+    id: int | None = None
+    uuid: str
+    description: str
+    status: str = "pending"
+
+
 class TaskModel(BaseModel):
     """Model representing a Taskwarrior task with all its attributes."""
 
@@ -31,3 +44,7 @@ class TaskModel(BaseModel):
     start: str | None = None
     depends: str | None = None
     annotations: list[TaskAnnotation] = Field(default_factory=list)
+
+    # Resolved dependency fields (populated by enrichment)
+    depends_on: list[ResolvedDependency] = Field(default_factory=list)
+    blocked_by_pending: int = 0

@@ -30,7 +30,11 @@ from taskwarrior_mcp.utils.formatters import (
     _format_tasks_concise,
     _format_tasks_markdown,
 )
-from taskwarrior_mcp.utils.parsers import _parse_task, _parse_tasks
+from taskwarrior_mcp.utils.parsers import (
+    _enrich_tasks_dependencies,
+    _parse_task,
+    _parse_tasks,
+)
 
 
 @mcp.tool(
@@ -86,6 +90,7 @@ async def taskwarrior_list(params: ListTasksInput) -> str:
 
     raw_tasks = result if isinstance(result, list) else []
     tasks = _parse_tasks(raw_tasks)
+    tasks = _enrich_tasks_dependencies(tasks)  # Resolve dependency UUIDs
     total_count = len(tasks)
 
     if params.limit and len(tasks) > params.limit:
@@ -438,6 +443,7 @@ async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
             )
 
         tasks = _parse_tasks(raw_tasks)
+        tasks = _enrich_tasks_dependencies(tasks)  # Resolve dependency UUIDs
 
         if params.response_format == ResponseFormat.JSON:
             return json.dumps([t.model_dump() for t in tasks], indent=2)

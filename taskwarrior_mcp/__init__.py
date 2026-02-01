@@ -29,6 +29,7 @@ from taskwarrior_mcp.models import (
     ModifyTaskInput,
     ProjectSummaryInput,
     ReadyInput,
+    ResolvedDependency,
     ScoredTask,
     StartTaskInput,
     StopTaskInput,
@@ -69,6 +70,8 @@ from taskwarrior_mcp.tools import (
 
 # Re-export utilities (including private functions used by tests)
 from taskwarrior_mcp.utils import (
+    _enrich_task_dependencies,
+    _enrich_tasks_dependencies,
     _format_task_concise,
     _format_task_markdown,
     _format_tasks_concise,
@@ -87,6 +90,7 @@ __all__ = [
     # Task models
     "TaskAnnotation",
     "TaskModel",
+    "ResolvedDependency",
     # Core input models
     "ListTasksInput",
     "AddTaskInput",
@@ -119,6 +123,8 @@ __all__ = [
     "_get_tasks_json",
     "_parse_task",
     "_parse_tasks",
+    "_enrich_task_dependencies",
+    "_enrich_tasks_dependencies",
     "_format_task_concise",
     "_format_task_markdown",
     "_format_tasks_concise",
