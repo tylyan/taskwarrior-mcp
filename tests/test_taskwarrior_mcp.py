@@ -1144,6 +1144,181 @@ class TestTaskwarriorSummary:
             assert "No priority: 1" in result
 
 
+class TestTaskwarriorProjectSummary:
+    """Tests for the taskwarrior_project_summary tool."""
+
+    @pytest.mark.asyncio
+    async def test_project_summary_all_projects_markdown(self, sample_tasks):
+        """Test project summary for all projects in markdown format."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = ProjectSummaryInput()
+            result = await taskwarrior_project_summary(params)
+            assert "Project Summary" in result
+            assert "work" in result
+            assert "personal" in result
+            # work has 2 tasks, personal has 1
+            assert "2" in result
+            assert "1" in result
+
+    @pytest.mark.asyncio
+    async def test_project_summary_single_project(self):
+        """Test project summary for a specific project."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        tasks = [
+            {"id": 1, "description": "Task 1", "status": "pending", "project": "work", "priority": "H"},
+            {"id": 2, "description": "Task 2", "status": "pending", "project": "work", "priority": "M"},
+            {"id": 3, "description": "Task 3", "status": "pending", "project": "work"},
+            {"id": 4, "description": "Other task", "status": "pending", "project": "personal"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ProjectSummaryInput(project="work")
+            result = await taskwarrior_project_summary(params)
+            assert "work" in result
+            assert "personal" not in result
+            assert "3" in result  # 3 tasks in work project
+
+    @pytest.mark.asyncio
+    async def test_project_summary_json_format(self, sample_tasks):
+        """Test project summary in JSON format."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(sample_tasks), stderr="")
+            params = ProjectSummaryInput(response_format=ResponseFormat.JSON)
+            result = await taskwarrior_project_summary(params)
+            data = json.loads(result)
+            assert "projects" in data
+            project_names = [p["name"] for p in data["projects"]]
+            assert "work" in project_names
+            assert "personal" in project_names
+
+    @pytest.mark.asyncio
+    async def test_project_summary_priority_breakdown(self):
+        """Test project summary includes priority breakdown."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        tasks = [
+            {"id": 1, "description": "High", "status": "pending", "project": "work", "priority": "H"},
+            {"id": 2, "description": "Medium", "status": "pending", "project": "work", "priority": "M"},
+            {"id": 3, "description": "Low", "status": "pending", "project": "work", "priority": "L"},
+            {"id": 4, "description": "None", "status": "pending", "project": "work"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ProjectSummaryInput(project="work")
+            result = await taskwarrior_project_summary(params)
+            assert "High" in result or "H:" in result
+            assert "4" in result  # Total tasks
+
+    @pytest.mark.asyncio
+    async def test_project_summary_with_overdue_tasks(self):
+        """Test project summary shows overdue tasks."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        tasks = [
+            {"id": 1, "description": "Overdue", "status": "pending", "project": "work", "due": "20240101T000000Z"},
+            {"id": 2, "description": "Future", "status": "pending", "project": "work", "due": "20991231T000000Z"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ProjectSummaryInput(project="work")
+            result = await taskwarrior_project_summary(params)
+            assert "overdue" in result.lower() or "Overdue" in result
+
+    @pytest.mark.asyncio
+    async def test_project_summary_with_active_tasks(self):
+        """Test project summary shows active tasks."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        tasks = [
+            {"id": 1, "description": "Active", "status": "pending", "project": "work", "start": "20250130T100000Z"},
+            {"id": 2, "description": "Not active", "status": "pending", "project": "work"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ProjectSummaryInput(project="work")
+            result = await taskwarrior_project_summary(params)
+            assert "active" in result.lower() or "Active" in result
+
+    @pytest.mark.asyncio
+    async def test_project_summary_empty(self):
+        """Test project summary with no tasks."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+            params = ProjectSummaryInput()
+            result = await taskwarrior_project_summary(params)
+            assert "No projects" in result or "no tasks" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_project_summary_nonexistent_project(self):
+        """Test project summary for a project that doesn't exist."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        tasks = [
+            {"id": 1, "description": "Task", "status": "pending", "project": "work"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(tasks), stderr="")
+            params = ProjectSummaryInput(project="nonexistent")
+            result = await taskwarrior_project_summary(params)
+            assert "not found" in result.lower() or "no tasks" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_project_summary_include_completed(self):
+        """Test project summary with completed tasks included."""
+        from taskwarrior_mcp import ProjectSummaryInput, taskwarrior_project_summary
+
+        pending_tasks = [
+            {"id": 1, "description": "Pending", "status": "pending", "project": "work"},
+        ]
+        completed_tasks = [
+            {"id": 2, "description": "Done", "status": "completed", "project": "work"},
+        ]
+        with patch("subprocess.run") as mock_run:
+            # First call for pending, second for completed
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout=json.dumps(pending_tasks), stderr=""),
+                MagicMock(returncode=0, stdout=json.dumps(completed_tasks), stderr=""),
+            ]
+            params = ProjectSummaryInput(project="work", include_completed=True)
+            result = await taskwarrior_project_summary(params)
+            assert "completed" in result.lower() or "Completed" in result
+
+
+class TestProjectSummaryInput:
+    """Tests for ProjectSummaryInput model."""
+
+    def test_project_summary_input_defaults(self):
+        """Test ProjectSummaryInput with default values."""
+        from taskwarrior_mcp import ProjectSummaryInput
+
+        input_model = ProjectSummaryInput()
+        assert input_model.project is None
+        assert input_model.include_completed is False
+        assert input_model.response_format == ResponseFormat.MARKDOWN
+
+    def test_project_summary_input_with_project(self):
+        """Test ProjectSummaryInput with specific project."""
+        from taskwarrior_mcp import ProjectSummaryInput
+
+        input_model = ProjectSummaryInput(project="work")
+        assert input_model.project == "work"
+
+    def test_project_summary_input_json_format(self):
+        """Test ProjectSummaryInput with JSON format."""
+        from taskwarrior_mcp import ProjectSummaryInput
+
+        input_model = ProjectSummaryInput(response_format=ResponseFormat.JSON)
+        assert input_model.response_format == ResponseFormat.JSON
+
+
 # ============================================================================
 # Agent Intelligence Tools Tests
 # ============================================================================

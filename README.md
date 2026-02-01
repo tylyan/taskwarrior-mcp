@@ -111,6 +111,7 @@ Add to your `~/.claude/settings.json`:
 | `taskwarrior_start` | Start working on a task |
 | `taskwarrior_stop` | Stop working on a task |
 | `taskwarrior_projects` | List all projects |
+| `taskwarrior_project_summary` | Get detailed project summaries with priority breakdown, due dates, and active tasks |
 | `taskwarrior_tags` | List all tags |
 | `taskwarrior_undo` | Undo the last operation |
 | `taskwarrior_summary` | Get task statistics |
