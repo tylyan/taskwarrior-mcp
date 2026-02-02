@@ -1,0 +1,25 @@
+# gitlint configuration
+# https://jorisroovers.com/gitlint/
+
+[general]
+# Use conventional commits contrib rule
+contrib = contrib-title-conventional-commits
+
+# Ignore certain rules
+ignore = body-is-missing
+
+# Verbosity (use 2 for debugging)
+verbosity = 1
+
+[title-max-length]
+line-length = 72
+
+[title-min-length]
+min-length = 10
+
+[body-max-line-length]
+line-length = 100
+
+[contrib-title-conventional-commits]
+# Allowed commit types
+types = feat,fix,docs,style,refactor,perf,test,chore,ci,build,revert
