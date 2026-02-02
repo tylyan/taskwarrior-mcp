@@ -938,10 +938,7 @@ async def taskwarrior_context(params: ContextInput) -> str:
             )
         task = _parse_task(task_list[0])
     except json.JSONDecodeError as e:
-        return (
-            f"Error: Failed to parse task data - {str(e)}\n"
-            f"Tip: This may indicate a Taskwarrior configuration issue."
-        )
+        return f"Error: Failed to parse task data - {str(e)}\nTip: This may indicate a Taskwarrior configuration issue."
 
     # Get all tasks for dependency and related analysis
     success, all_result = _get_tasks_json(status=TaskStatus.ALL)

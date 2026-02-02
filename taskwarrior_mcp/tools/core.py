@@ -386,10 +386,7 @@ async def taskwarrior_get(params: GetTaskInput) -> str:
         return _format_task_markdown(task)
 
     except json.JSONDecodeError as e:
-        return (
-            f"Error: Failed to parse task data - {str(e)}\n"
-            f"Tip: This may indicate a Taskwarrior configuration issue."
-        )
+        return f"Error: Failed to parse task data - {str(e)}\nTip: This may indicate a Taskwarrior configuration issue."
 
 
 @mcp.tool(
@@ -468,10 +465,7 @@ async def taskwarrior_bulk_get(params: BulkGetTasksInput) -> str:
         return "\n".join(lines)
 
     except json.JSONDecodeError as e:
-        return (
-            f"Error: Failed to parse task data - {str(e)}\n"
-            f"Tip: This may indicate a Taskwarrior configuration issue."
-        )
+        return f"Error: Failed to parse task data - {str(e)}\nTip: This may indicate a Taskwarrior configuration issue."
 
 
 @mcp.tool(
