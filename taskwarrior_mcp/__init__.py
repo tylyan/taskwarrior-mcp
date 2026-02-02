@@ -6,6 +6,10 @@ management operations including listing, creating, completing, modifying,
 and organizing tasks with projects and tags.
 """
 
+from importlib.metadata import version
+
+__version__ = version("taskwarrior-mcp")
+
 # Re-export enums
 from taskwarrior_mcp.enums import Priority, ResponseFormat, TaskStatus
 
@@ -85,6 +89,8 @@ from taskwarrior_mcp.utils import (
 )
 
 __all__ = [
+    # Version
+    "__version__",
     # Enums
     "ResponseFormat",
     "TaskStatus",

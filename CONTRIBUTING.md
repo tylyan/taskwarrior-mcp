@@ -103,6 +103,45 @@ See `docs/adr/0000-template.md` for the format.
 - Run tests: `pytest` or `uv run pytest`
 - Coverage reports: `pytest --cov=taskwarrior_mcp`
 
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for new functionality in a backwards compatible manner
+- **PATCH** version for backwards compatible bug fixes
+
+### Version Bumping
+
+The version is defined in `pyproject.toml` and is accessible in code via:
+
+```python
+from taskwarrior_mcp import __version__
+print(__version__)  # e.g., "0.2.0"
+```
+
+### How Conventional Commits Drive Versioning
+
+Your commit messages determine the next version:
+
+| Commit Type | Version Bump | Example |
+|-------------|--------------|---------|
+| `fix:` | PATCH (0.1.0 → 0.1.1) | `fix: handle empty task list` |
+| `feat:` | MINOR (0.1.0 → 0.2.0) | `feat: add bulk modify tool` |
+| `feat!:` or `BREAKING CHANGE:` | MAJOR (0.1.0 → 1.0.0) | `feat!: rename tools` |
+
+### Release Process
+
+1. Ensure all changes are merged to `main`
+2. Determine version bump from commits since last release
+3. Update version in `pyproject.toml`
+4. Regenerate changelog: `git-cliff -o CHANGELOG.md`
+5. Commit: `git commit -am "chore(release): prepare X.Y.Z"`
+6. Tag: `git tag vX.Y.Z`
+7. Push: `git push && git push --tags`
+
+The GitHub Actions release workflow will automatically publish to PyPI when a tag is pushed.
+
 ## Changelog
 
 The changelog is generated using git-cliff from conventional commits. You don't need to manually edit CHANGELOG.md - it will be regenerated at release time.
@@ -111,6 +150,12 @@ To preview unreleased changes:
 
 ```bash
 git-cliff --unreleased
+```
+
+To regenerate the full changelog:
+
+```bash
+git-cliff -o CHANGELOG.md
 ```
 
 ## Questions?

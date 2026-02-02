@@ -48,6 +48,16 @@ cd taskwarrior-mcp
 pip install -e .
 ```
 
+### Verifying Installation
+
+```bash
+# Check the version
+python -c "from taskwarrior_mcp import __version__; print(__version__)"
+
+# Or run the server directly
+taskwarrior-mcp --help
+```
+
 ## Configuration
 
 See the [examples/](examples/) directory for complete configuration files.

@@ -71,6 +71,32 @@ from taskwarrior_mcp import (
 )
 
 # ============================================================================
+# Version Test
+# ============================================================================
+
+
+class TestVersion:
+    """Tests for version export."""
+
+    def test_version_is_exported(self):
+        """Verify __version__ is accessible from the package."""
+        from taskwarrior_mcp import __version__
+
+        assert __version__ is not None
+        assert isinstance(__version__, str)
+
+    def test_version_format(self):
+        """Verify version follows semantic versioning format."""
+        from taskwarrior_mcp import __version__
+
+        parts = __version__.split(".")
+        assert len(parts) >= 2  # At minimum: major.minor
+        # Verify all parts are numeric (allowing for pre-release suffixes)
+        assert parts[0].isdigit()
+        assert parts[1].isdigit()
+
+
+# ============================================================================
 # Test Fixtures
 # ============================================================================
 
