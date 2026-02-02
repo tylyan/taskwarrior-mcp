@@ -736,9 +736,8 @@ async def taskwarrior_project_summary(params: ProjectSummaryInput) -> str:
         # Due date analysis
         if task.due:
             try:
-                # Parse Taskwarrior date format (ISO 8601)
-                due_str = task.due.replace("Z", "+00:00")
-                due_date = datetime.fromisoformat(due_str)
+                # Parse Taskwarrior date format (YYYYMMDDTHHMMSSZ)
+                due_date = datetime.strptime(task.due, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
                 days_until_due = (due_date - now).days
 
                 if days_until_due < 0:
