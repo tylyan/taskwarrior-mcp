@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "taskwarrior-work": {
+      "command": "taskwarrior-mcp",
+      "env": {
+        "TASKDATA": "~/.task-work"
+      }
+    },
+    "taskwarrior-personal": {
+      "command": "taskwarrior-mcp",
+      "env": {
+        "TASKDATA": "~/.task-personal"
+      }
+    }
+  }
+}

@@ -80,3 +80,4 @@ dmypy.json
 # Local development
 *.local
 .claude/settings.local.json
+.mcp.json

@@ -1,0 +1,18 @@
+[tools]
+python = "latest"
+
+[tasks.test]
+description = "Run unit tests"
+run = "uv run pytest"
+
+[tasks.lint]
+description = "Run linting checks"
+run = "ruff check . && ruff format --check ."
+
+[tasks.changelog]
+description = "Preview unreleased changelog entries"
+run = "git-cliff --unreleased"
+
+[tasks."changelog:full"]
+description = "Generate full changelog to CHANGELOG.md"
+run = "git-cliff -o CHANGELOG.md"
