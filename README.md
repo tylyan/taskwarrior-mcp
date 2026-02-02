@@ -50,12 +50,16 @@ pip install -e .
 
 ## Configuration
 
+See the [examples/](examples/) directory for complete configuration files.
+
 ### Claude Desktop
 
 Add to your Claude Desktop configuration file:
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+| Platform | Location |
+|----------|----------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
 ```json
 {
@@ -93,6 +97,26 @@ Add to your `~/.claude/settings.json`:
   }
 }
 ```
+
+### Advanced Configuration
+
+Use environment variables to customize Taskwarrior behavior:
+
+```json
+{
+  "mcpServers": {
+    "taskwarrior": {
+      "command": "taskwarrior-mcp",
+      "env": {
+        "TASKRC": "/path/to/custom/.taskrc",
+        "TASKDATA": "/path/to/custom/.task"
+      }
+    }
+  }
+}
+```
+
+See [examples/](examples/) for more configurations including multiple databases.
 
 ## Available Tools
 

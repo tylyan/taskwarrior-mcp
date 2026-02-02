@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "taskwarrior": {
+      "command": "uvx",
+      "args": ["taskwarrior-mcp"]
+    }
+  }
+}

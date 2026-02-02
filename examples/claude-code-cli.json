@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "taskwarrior": {
+      "command": "taskwarrior-mcp"
+    }
+  }
+}

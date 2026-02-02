@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "taskwarrior": {
+      "command": "taskwarrior-mcp",
+      "env": {
+        "TASKRC": "/path/to/custom/.taskrc",
+        "TASKDATA": "/path/to/custom/.task"
+      }
+    }
+  }
+}
